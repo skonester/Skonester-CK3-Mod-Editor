@@ -70,6 +70,13 @@ import type {
   TitlePatch
 } from '@shared/types'
 
+const APP_NAME = 'Skonester CK3 Mod Editor'
+
+// userData (settings.json: favorites, recents, drafts) is named after the app, so
+// the rename to Skonester CK3 Mod Editor would strand existing settings. Pin a
+// packaged build to the folder the old "CK3 Tools" name used; dev keeps ck3-tools.
+if (app.isPackaged) app.setPath('userData', join(app.getPath('appData'), 'CK3 Tools'))
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
@@ -101,7 +108,7 @@ function createWindow(): void {
       } catch {
         // no label file — plain title
       }
-      win.setTitle(label ? `CK3 Tools — ${label}` : 'CK3 Tools')
+      win.setTitle(label ? `${APP_NAME} — ${label}` : APP_NAME)
     }
     win.on('page-title-updated', (e) => e.preventDefault())
     applyTitle()

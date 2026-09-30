@@ -1,4 +1,4 @@
-# Agent instructions — CK3 Tools
+# Agent instructions — Skonester CK3 Mod Editor
 
 See `CLAUDE.md` for the full project guide. The rules below apply to ALL AI agents and LLM tooling working in this repo.
 

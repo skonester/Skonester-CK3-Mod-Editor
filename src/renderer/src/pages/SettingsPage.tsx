@@ -155,7 +155,7 @@ export default function SettingsPage(): React.JSX.Element {
         <CardHeader>
           <CardTitle>Text editor</CardTitle>
           <CardDescription>
-            Used to open mod and game files that aren&apos;t managed by CK3 Tools.
+            Used to open mod and game files that aren&apos;t managed by Skonester CK3 Mod Editor.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

@@ -1,5 +1,5 @@
 appId: com.kevinsherman.ck3-tools
-productName: CK3 Tools
+productName: Skonester CK3 Mod Editor
 directories:
   output: dist
 files:
@@ -9,13 +9,15 @@ files:
   - resources/icon.png
 win:
   icon: resources/icon.ico
+  # Hyphens, not the product name's spaces, which GitHub turns into dots on upload
+  artifactName: Skonester-CK3-Mod-Editor-${version}-win.${ext}
   target:
     - nsis
     - zip
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  artifactName: CK3-Tools-Setup-${version}.${ext}
+  artifactName: Skonester-CK3-Mod-Editor-Setup-${version}.${ext}
   # No electron-updater in the app, so the differential-update blockmap is dead weight
   differentialPackage: false
 publish:
