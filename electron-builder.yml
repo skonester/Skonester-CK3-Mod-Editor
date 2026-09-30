@@ -10,7 +10,14 @@ files:
 win:
   icon: resources/icon.ico
   target:
+    - nsis
     - zip
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: CK3-Tools-Setup-${version}.${ext}
+  # No electron-updater in the app, so the differential-update blockmap is dead weight
+  differentialPackage: false
 publish:
   provider: github
   owner: haegemonia-ck3
@@ -19,3 +26,5 @@ publish:
   # installer on a hidden draft while the visible release shows only GitHub's
   # automatic source archives.
   releaseType: release
+  # latest.yml only feeds electron-updater, which the app doesn't use
+  publishAutoUpdate: false
