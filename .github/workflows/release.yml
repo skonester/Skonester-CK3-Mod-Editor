@@ -33,13 +33,12 @@ jobs:
         run: npm run build
 
       - name: Package and publish
-        # A v* tag publishes the Setup exe and portable zip onto that tag's GitHub
-        # Release; a manual run only packages them (grab them from the artifact
-        # below). The release goes to whichever repo runs the workflow, not the
-        # one hard-coded in electron-builder.yml, so a fork publishes to itself.
+        # Tag pushes and manual runs both publish the Setup exe and portable zip
+        # to a public GitHub Release for the version in package.json. The release
+        # goes to the repository running this workflow, including forks.
         run: >-
           npx electron-builder --win
-          --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+          --publish always
           --config.publish.owner=${{ github.repository_owner }}
           --config.publish.repo=${{ github.event.repository.name }}
         env:
