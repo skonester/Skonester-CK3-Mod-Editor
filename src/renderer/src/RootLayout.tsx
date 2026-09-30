@@ -7,11 +7,13 @@ import {
   Church,
   Crown,
   Landmark,
+  Package,
   PanelLeft,
   Settings,
   Shield
 } from 'lucide-react'
 import { useApp } from './AppContext'
+import logo from './assets/logo.png'
 import ModPicker from './components/ModPicker'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,6 +31,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -78,41 +81,58 @@ export default function RootLayout(): React.JSX.Element {
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <Sidebar collapsible="icon">
+        <Sidebar collapsible="icon" variant="inset">
           <SidebarHeader>
-            <div className="px-2 py-1 group-data-[collapsible=icon]:hidden">
-              <span className="block font-heading text-lg font-semibold tracking-wide text-sidebar-primary">
-                CK3 Tools
-              </span>
-              <Dialog open={modDialogOpen} onOpenChange={setModDialogOpen}>
-                <DialogTrigger asChild>
-                  <button
-                    className="mt-0.5 flex w-full cursor-pointer items-center gap-1 rounded-sm text-xs text-muted-foreground hover:text-foreground"
-                    title={selectedMod?.file}
-                  >
-                    <span className="truncate">{selectedMod ? selectedMod.name : 'Select a mod…'}</span>
-                    <ChevronsUpDown className="size-3 shrink-0" />
-                  </button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Active mod</DialogTitle>
-                    <DialogDescription>
-                      The tools will read from the game directory and read/write to the selected mod.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <ModPicker plain onSelect={() => setModDialogOpen(false)} />
-                  <DialogFooter className="sm:justify-start">
-                    <Button variant="outline" size="sm" onClick={refreshMods}>
-                      Refresh
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
+            <img
+              src={logo}
+              alt="Mod Editor"
+              draggable={false}
+              className="mx-auto h-16 w-auto px-2 pt-1 group-data-[collapsible=icon]:hidden"
+            />
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <Dialog open={modDialogOpen} onOpenChange={setModDialogOpen}>
+                  <DialogTrigger asChild>
+                    <SidebarMenuButton
+                      size="lg"
+                      tooltip={selectedMod ? selectedMod.name : 'Select a mod'}
+                      className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                    >
+                      <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                        <Package className="size-4" />
+                      </div>
+                      <div className="grid flex-1 text-left text-sm leading-tight">
+                        <span className="truncate font-medium">
+                          {selectedMod ? selectedMod.name : 'Select a mod…'}
+                        </span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {selectedMod ? selectedMod.file : 'No active mod'}
+                        </span>
+                      </div>
+                      <ChevronsUpDown className="ml-auto" />
+                    </SidebarMenuButton>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Active mod</DialogTitle>
+                      <DialogDescription>
+                        The tools will read from the game directory and read/write to the selected mod.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <ModPicker plain onSelect={() => setModDialogOpen(false)} />
+                    <DialogFooter className="sm:justify-start">
+                      <Button variant="outline" size="sm" onClick={refreshMods}>
+                        Refresh
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </SidebarHeader>
           <SidebarContent>
             <SidebarGroup>
+              <SidebarGroupLabel>Editors</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {TOOLS.map((tool) => (
@@ -160,7 +180,8 @@ export default function RootLayout(): React.JSX.Element {
           </SidebarFooter>
           <SidebarRail />
         </Sidebar>
-        <SidebarInset className="h-svh overflow-hidden">
+        {/* The inset variant floats the page as a card with a 0.5rem margin all round */}
+        <SidebarInset className="h-svh overflow-hidden md:h-[calc(100svh-1rem)]">
           <div className="min-h-0 flex-1 overflow-y-auto">
             <Outlet />
           </div>

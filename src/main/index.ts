@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { join } from 'path'
 import { readFileSync, unwatchFile, watchFile } from 'fs'
+import icon from '../../resources/icon.png?asset'
 import { loadSettings, saveSettings } from './settings'
 import {
   detectPaths,
@@ -77,7 +78,9 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#16130f',
+    icon,
+    // The dark theme's --background, so the frame shown before first paint matches it
+    backgroundColor: '#09090b',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,

@@ -5,7 +5,10 @@ directories:
 files:
   - out/**
   - package.json
+  # window icon, loaded at runtime from main via ?asset
+  - resources/icon.png
 win:
+  icon: resources/icon.ico
   target:
     - zip
 publish:
