@@ -429,6 +429,7 @@ export default function CharacterEditorPage(): React.JSX.Element {
     if (search.birth) createPrefill.birth = search.birth
     if (search.culture) createPrefill.culture = search.culture
     if (search.faith) createPrefill.faith = search.faith
+    if (search.rite) createPrefill.rite = search.rite
     if (search.father) createPrefill.father = search.father
     if (search.mother) createPrefill.mother = search.mother
     if (search.dynasty) createPrefill.dynasty = search.dynasty
@@ -613,6 +614,7 @@ export default function CharacterEditorPage(): React.JSX.Element {
                   }
                   onOpenCulture={(id) => void navigate({ to: '/cultures', search: { id } })}
                   onOpenFaith={(id) => void navigate({ to: '/faiths', search: { id } })}
+                  onOpenRite={(id) => void navigate({ to: '/rites', search: { id } })}
                   onCreateChild={openCreate}
                   storedDraft={
                     (history.drafts[entryKey(charRef(selected.file, selected.id))] as
@@ -661,6 +663,7 @@ export default function CharacterEditorPage(): React.JSX.Element {
                   }
                   onOpenCulture={(id) => void navigate({ to: '/cultures', search: { id } })}
                   onOpenFaith={(id) => void navigate({ to: '/faiths', search: { id } })}
+                  onOpenRite={(id) => void navigate({ to: '/rites', search: { id } })}
                   onCreated={(file, id) => {
                     void navigate({ to: '/characters', search: { file, id }, replace: true })
                     reload()

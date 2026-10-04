@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { dirname, join } from 'path'
 
 /**
  * Writing brand-new top-level blocks into Paradox script files, shared by the
@@ -29,6 +29,15 @@ export function isTxtFileName(file: string): boolean {
   return file.toLowerCase().endsWith('.txt') && file.length > 4 && /^[^\\/:*?"<>|]+$/.test(file)
 }
 
+/** A nested .txt path inside a content folder, without traversal or absolute paths. */
+export function isTxtRelativePath(file: string): boolean {
+  const parts = file.replace(/\\/g, '/').split('/')
+  return (
+    parts.every((part) => part !== '.' && part !== '..' && part.trim() === part && !part.endsWith('.') && /^[^\\/:*?"<>|]+$/.test(part)) &&
+    isTxtFileName(parts[parts.length - 1])
+  )
+}
+
 /**
  * Append a block to `dir/file`, creating the file (and its directory) when
  * missing. Existing content is preserved byte-for-byte and the block is
@@ -41,6 +50,6 @@ export function appendBlock(dir: string, file: string, lines: string[]): void {
   let prefix = existing ?? ''
   if (prefix !== '' && !prefix.endsWith('\n')) prefix += eol
   if (prefix !== '' && !/(\r?\n){2}$/.test(prefix)) prefix += eol
-  if (existing === null) mkdirSync(dir, { recursive: true })
+  if (existing === null) mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, prefix + lines.join(eol) + eol, 'utf-8')
 }

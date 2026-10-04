@@ -1,10 +1,18 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { basename, join } from 'path'
-import { makeEditor, setRepeatedScalar, setScalar } from './lineEditor'
+import { makeEditor, setBlockList, setRepeatedScalar, setScalar } from './lineEditor'
 import { KEY_CHARS, appendBlock, isTxtFileName } from './scriptFile'
 import { readLocalization } from './localization'
 import { annotateLines, scanBlocks, scanRepeatedScalarCI, scanScalarsCI } from './pdx'
 import { effectiveFiles, isUnderDir } from './refdata'
+import {
+  FAITH_DIR,
+  RITE_DIR,
+  TENET_DIR,
+  blockList,
+  nestedBody,
+  religionFormat
+} from './religionSchema'
 import type { BlockSpan } from './pdx'
 import type {
   FaithAdherent,
@@ -13,10 +21,13 @@ import type {
   FaithPatch,
   NewFaith,
   NewReligion,
+  NewRite,
   RefEntry,
   ReligionData,
   ReligionDef,
   ReligionPatch,
+  RiteDef,
+  RitePatch,
   SaveResult
 } from '@shared/types'
 
@@ -269,6 +280,43 @@ function readDoctrineGroups(
       })
     }
   }
+  // Since 1.20, doctrines declare their group and index instead of the group
+  // listing members. Resolve effective definitions first so mod overrides win.
+  const members = new Map<string, { id: string; group: string; index: number }>()
+  const seenDoctrines = new Set<string>()
+  for (const path of modFirst(
+    effectiveFiles(gameDir, modPath, replacePaths, DOCTRINE_DIR),
+    modPath
+  )) {
+    let text: string
+    try {
+      text = readFileSync(path, 'utf-8')
+    } catch {
+      continue
+    }
+    for (const block of scanBlocks(text)) {
+      if (seenDoctrines.has(norm(block.key))) continue
+      seenDoctrines.add(norm(block.key))
+      const scalars = scanScalarsCI(text.slice(block.bodyStart, block.bodyEnd))
+      const group = scalars.get('doctrine_group_type')
+      if (group)
+        members.set(norm(block.key), {
+          id: block.key,
+          group,
+          index: Number(scalars.get('index') ?? 0)
+        })
+    }
+  }
+  for (const group of groups) {
+    const declared = [...members.values()]
+      .filter((d) => norm(d.group) === norm(group.id))
+      .sort((a, b) => a.index - b.index)
+      .map((d) => d.id)
+    group.doctrines = [
+      ...group.doctrines,
+      ...declared.filter((d) => !group.doctrines.some((old) => norm(old) === norm(d)))
+    ]
+  }
   return groups
 }
 
@@ -280,11 +328,13 @@ function faithsBlock(religionBody: string): BlockSpan | null {
 }
 
 function parseReligion(body: string, id: string, file: string, inMod: boolean): ReligionDef {
-  const scalars = scanScalarsCI(body)
+  const details = nestedBody(body, 'religion_details')
+  const scalars = scanScalarsCI(details ?? body)
   return {
     id,
     file,
     inMod,
+    format: details === null ? 'legacy' : '1.20',
     family: scalars.get('family') ?? null,
     graphicalFaith: scalars.get('graphical_faith') ?? null,
     pietyIconGroup: scalars.get('piety_icon_group') ?? null,
@@ -301,18 +351,24 @@ function parseFaith(
   inMod: boolean,
   named: Map<string, string>
 ): FaithDef {
-  const scalars = scanScalarsCI(body)
+  const details = nestedBody(body, 'faith_details')
+  const scalars = scanScalarsCI(details ?? body)
+  const modern = details !== null
   return {
     id,
     file,
     inMod,
-    religion,
-    color: parseColor(body, named),
+    religion: modern ? (scalars.get('religion') ?? '') : religion,
+    format: modern ? '1.20' : 'legacy',
+    mainRite: modern ? (scanScalarsCI(body).get('main_rite') ?? null) : null,
+    tenets: modern ? blockList(body, 'tenets') : [],
+    eminentHolySites: modern ? blockList(body, 'eminent_holy_sites') : [],
+    color: parseColor(details ?? body, named),
     icon: scalars.get('icon') ?? null,
     reformedIcon: scalars.get('reformed_icon') ?? null,
     religiousHead: scalars.get('religious_head') ?? null,
-    doctrines: scanRepeatedScalarCI(body, 'doctrine'),
-    holySites: scanRepeatedScalarCI(body, 'holy_site'),
+    doctrines: modern ? blockList(body, 'doctrines') : scanRepeatedScalarCI(body, 'doctrine'),
+    holySites: modern ? blockList(body, 'holy_sites') : scanRepeatedScalarCI(body, 'holy_site'),
     localizedName: null
   }
 }
@@ -320,7 +376,7 @@ function parseFaith(
 // ---------- Adherents ----------
 
 /** Character id -> the faith its history entry professes, over the whole mod. */
-function listAdherents(modPath: string): FaithAdherent[] {
+function listAdherents(modPath: string, rites: RiteDef[]): FaithAdherent[] {
   const dir = join(modPath, 'history', 'characters')
   if (!existsSync(dir)) return []
   const adherents: FaithAdherent[] = []
@@ -335,9 +391,17 @@ function listAdherents(modPath: string): FaithAdherent[] {
     for (const block of scanBlocks(text)) {
       const scalars = scanScalarsCI(text.slice(block.bodyStart, block.bodyEnd))
       // `faith` and `religion` are the same field under two spellings
-      const faith = scalars.get('faith') ?? scalars.get('religion')
+      const rite = scalars.get('rite')
+      const parent = rite ? rites.find((r) => norm(r.id) === norm(rite))?.faith : null
+      const faith = parent ?? scalars.get('faith') ?? scalars.get('religion') ?? rite
       if (faith === undefined) continue
-      adherents.push({ id: block.key, file: entry, name: scalars.get('name') ?? null, faith })
+      adherents.push({
+        id: block.key,
+        file: entry,
+        name: scalars.get('name') ?? null,
+        faith,
+        rite: rite ?? null
+      })
     }
   }
   return adherents
@@ -359,8 +423,10 @@ export function getReligionData(
   // the reference a modder copies from. Mod definitions win on a clash.
   const seenReligions = new Set<string>()
   const seenFaiths = new Set<string>()
+  // Scan standalone and nested definitions together, always mod first.
+  const standalonePaths = new Set(effectiveFiles(gameDir, modPath, replacePaths, FAITH_DIR))
   for (const path of modFirst(
-    effectiveFiles(gameDir, modPath, replacePaths, RELIGION_DIR),
+    [...standalonePaths, ...effectiveFiles(gameDir, modPath, replacePaths, RELIGION_DIR)],
     modPath
   )) {
     let text: string
@@ -372,6 +438,22 @@ export function getReligionData(
     const file = basename(path)
     const inMod = isUnderDir(path, modPath)
     for (const block of scanBlocks(text)) {
+      if (standalonePaths.has(path)) {
+        if (!seenFaiths.has(norm(block.key))) {
+          seenFaiths.add(norm(block.key))
+          faiths.push(
+            parseFaith(
+              text.slice(block.bodyStart, block.bodyEnd),
+              block.key,
+              '',
+              file,
+              inMod,
+              named
+            )
+          )
+        }
+        continue
+      }
       if (seenReligions.has(norm(block.key))) continue
       seenReligions.add(norm(block.key))
       const body = text.slice(block.bodyStart, block.bodyEnd)
@@ -400,6 +482,39 @@ export function getReligionData(
   const allDoctrines = topLevelKeys(gameDir, modPath, replacePaths, DOCTRINE_DIR)
   const holySites = topLevelKeys(gameDir, modPath, replacePaths, HOLY_SITE_DIR)
   const families = topLevelKeys(gameDir, modPath, replacePaths, FAMILY_DIR)
+  const tenets = topLevelKeys(gameDir, modPath, replacePaths, TENET_DIR)
+  const rites: RiteDef[] = []
+  const riteNames = new Map<string, string>()
+  const seenRites = new Set<string>()
+  for (const path of modFirst(effectiveFiles(gameDir, modPath, replacePaths, RITE_DIR), modPath)) {
+    let text: string
+    try {
+      text = readFileSync(path, 'utf-8')
+    } catch {
+      continue
+    }
+    for (const block of scanBlocks(text)) {
+      if (seenRites.has(norm(block.key))) continue
+      seenRites.add(norm(block.key))
+      const body = text.slice(block.bodyStart, block.bodyEnd)
+      const scalars = scanScalarsCI(body)
+      riteNames.set(block.key, scalars.get('name') ?? block.key)
+      rites.push({
+        id: block.key,
+        file: basename(path),
+        inMod: isUnderDir(path, modPath),
+        localizedName: null,
+        faith: scalars.get('faith') ?? null,
+        color: parseColor(body, named),
+        icon: scalars.get('icon') ?? null,
+        founder: scalars.get('founder') ?? null,
+        create: scalars.get('create') ?? null,
+        convert: scalars.get('convert') ?? null,
+        doctrines: blockList(body, 'doctrines'),
+        tenets: blockList(body, 'tenets')
+      })
+    }
+  }
 
   // Religions, faiths and families localize under their own id; doctrines and
   // doctrine groups under `<id>_name`; holy sites under `holy_site_<id>_name`.
@@ -408,6 +523,8 @@ export function getReligionData(
   const wanted = new Set<string>([
     ...religions.map((r) => r.id),
     ...faiths.map((f) => f.id),
+    ...riteNames.values(),
+    ...tenets.map(doctrineLocKey),
     ...families,
     ...allDoctrines.map(doctrineLocKey),
     ...rawGroups.map((g) => doctrineLocKey(g.id)),
@@ -419,6 +536,7 @@ export function getReligionData(
 
   for (const r of religions) r.localizedName = locName(r.id)
   for (const f of faiths) f.localizedName = locName(f.id)
+  for (const r of rites) r.localizedName = locName(riteNames.get(r.id) ?? r.id)
 
   const grouped = new Set(rawGroups.flatMap((g) => g.doctrines))
   const doctrineEntry = (id: string): RefEntry => ({ id, name: locName(doctrineLocKey(id)) })
@@ -426,6 +544,9 @@ export function getReligionData(
   return {
     religions,
     faiths,
+    format: religionFormat(gameDir, modPath),
+    rites,
+    tenets: tenets.map(doctrineEntry),
     groups: rawGroups.map((g) => ({
       id: g.id,
       category: g.category,
@@ -436,11 +557,43 @@ export function getReligionData(
     ungroupedDoctrines: allDoctrines.filter((d) => !grouped.has(d)).map(doctrineEntry),
     holySites: holySites.map((id) => ({ id, name: locName(holySiteLocKey(id)) })),
     families: families.map((id) => ({ id, name: locName(id) })),
-    adherents: modPath ? listAdherents(modPath) : []
+    adherents: modPath ? listAdherents(modPath, rites) : []
   }
 }
 
 // ---------- Saving ----------
+
+/** Block lists are only rewritten after an edit, preserving comments on no-op saves. */
+function setListIfChanged(
+  ed: ReturnType<typeof makeEditor>,
+  key: string,
+  values: string[] | undefined
+): void {
+  if (
+    values !== undefined &&
+    JSON.stringify(blockList(ed.lines.join('\n'), key)) !== JSON.stringify(values)
+  ) {
+    setBlockList(ed, key, values)
+  }
+}
+
+function saveModernFaithBody(body: string, patch: FaithPatch): string {
+  const details = scanBlocks(body).find((b) => norm(b.key) === 'faith_details')
+  if (!details) throw new Error('Faith has no faith_details block')
+  const inner = body.slice(details.bodyStart, details.bodyEnd)
+  const ed = makeEditor(setColor(inner, patch.color, parseColor(inner, new Map())))
+  setScalar(ed, ['icon'], patch.icon, { ignoreCase: true })
+  setScalar(ed, ['reformed_icon'], patch.reformedIcon, { ignoreCase: true })
+  setScalar(ed, ['religious_head'], patch.religiousHead, { ignoreCase: true })
+  const outer = makeEditor(spliceBody(body, details, ed.lines.join('\n')))
+  if (patch.mainRite !== undefined)
+    setScalar(outer, ['main_rite'], patch.mainRite, { ignoreCase: true })
+  setListIfChanged(outer, 'holy_sites', patch.holySites)
+  setListIfChanged(outer, 'eminent_holy_sites', patch.eminentHolySites)
+  setListIfChanged(outer, 'doctrines', patch.doctrines)
+  setListIfChanged(outer, 'tenets', patch.tenets)
+  return outer.lines.join('\n')
+}
 
 /** Rewrite a block's body in place, leaving the rest of the file byte-identical. */
 function spliceBody(text: string, block: BlockSpan, body: string): string {
@@ -489,6 +642,28 @@ export function saveFaith(
   patch: FaithPatch
 ): SaveResult {
   try {
+    if (!isTxtFileName(file)) return { ok: false, error: 'Invalid file name' }
+    const modernPath = join(modPath, ...FAITH_DIR.split('/'), file)
+    if (
+      patch.format === '1.20' ||
+      (patch.format === undefined &&
+        existsSync(modernPath) &&
+        !existsSync(join(modPath, ...RELIGION_DIR.split('/'), file)))
+    ) {
+      if (!existsSync(modernPath)) return { ok: false, error: `File not found: ${file}` }
+      const text = readFileSync(modernPath, 'utf-8')
+      const faith = scanBlocks(text).find((b) => norm(b.key) === norm(faithId))
+      if (!faith) return { ok: false, error: `${faithId} not found in ${file}` }
+      const body = text.slice(faith.bodyStart, faith.bodyEnd)
+      const parent = scanScalarsCI(nestedBody(body, 'faith_details') ?? '').get('religion')
+      if (norm(parent ?? '') !== norm(religionId))
+        return { ok: false, error: 'Faith parent religion changed; reload before saving' }
+      if (patch.eminentHolySites?.some((s) => patch.holySites.some((h) => norm(s) === norm(h)))) {
+        return { ok: false, error: 'A holy site cannot be both ordinary and eminent' }
+      }
+      writeFileSync(modernPath, spliceBody(text, faith, saveModernFaithBody(body, patch)), 'utf-8')
+      return { ok: true }
+    }
     const path = join(modPath, ...RELIGION_DIR.split('/'), file)
     if (!existsSync(path)) return { ok: false, error: `File not found: ${file}` }
     const text = readFileSync(path, 'utf-8')
@@ -522,18 +697,22 @@ export function saveReligion(
   patch: ReligionPatch
 ): SaveResult {
   try {
+    if (!isTxtFileName(file)) return { ok: false, error: 'Invalid file name' }
     const path = join(modPath, ...RELIGION_DIR.split('/'), file)
     if (!existsSync(path)) return { ok: false, error: `File not found: ${file}` }
     const text = readFileSync(path, 'utf-8')
     const religion = scanBlocks(text).find((b) => norm(b.key) === norm(religionId))
     if (!religion) return { ok: false, error: `${religionId} not found in ${file}` }
 
-    const ed = makeEditor(text.slice(religion.bodyStart, religion.bodyEnd))
+    const body = text.slice(religion.bodyStart, religion.bodyEnd)
+    const details = scanBlocks(body).find((b) => norm(b.key) === 'religion_details')
+    const ed = makeEditor(details ? body.slice(details.bodyStart, details.bodyEnd) : body)
     setScalar(ed, ['family'], patch.family, { ignoreCase: true })
     setScalar(ed, ['graphical_faith'], patch.graphicalFaith, { ignoreCase: true })
     setScalar(ed, ['piety_icon_group'], patch.pietyIconGroup, { quoteNew: true, ignoreCase: true })
-    setRepeatedScalar(ed, 'doctrine', patch.doctrines, { ignoreCase: true })
-    writeFileSync(path, spliceBody(text, religion, ed.lines.join('\n')), 'utf-8')
+    const outer = details ? makeEditor(spliceBody(body, details, ed.lines.join('\n'))) : ed
+    setRepeatedScalar(outer, 'doctrine', patch.doctrines, { ignoreCase: true })
+    writeFileSync(path, spliceBody(text, religion, outer.lines.join('\n')), 'utf-8')
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -562,6 +741,10 @@ function modDefinitions(modPath: string): {
 } {
   const religions = new Map<string, string>()
   const faiths = new Map<string, string>()
+  for (const path of effectiveFiles(null, modPath, [], FAITH_DIR)) {
+    for (const faith of scanBlocks(readFileSync(path, 'utf-8')))
+      faiths.set(norm(faith.key), basename(path))
+  }
   for (const path of effectiveFiles(null, modPath, [], RELIGION_DIR)) {
     let text: string
     try {
@@ -645,6 +828,21 @@ export function createReligion(modPath: string, file: string, def: NewReligion):
     if (!def.family?.trim()) return { ok: false, error: 'Family is required' }
 
     const id = def.id.trim()
+    if (
+      def.format === '1.20' ||
+      (def.format === undefined && religionFormat(null, modPath) === '1.20')
+    ) {
+      const lines = [`${id} = {`, '\treligion_details = {', `\t\tfamily = ${def.family.trim()}`]
+      if (def.graphicalFaith?.trim())
+        lines.push(`\t\tgraphical_faith = ${def.graphicalFaith.trim()}`)
+      if (def.pietyIconGroup?.trim())
+        lines.push(`\t\tpiety_icon_group = "${def.pietyIconGroup.trim()}"`)
+      lines.push('\t}')
+      for (const doctrine of def.doctrines) lines.push(`\tdoctrine = ${doctrine}`)
+      lines.push('}')
+      appendBlock(join(modPath, ...RELIGION_DIR.split('/')), file, lines)
+      return { ok: true }
+    }
     const lines = [`${id} = {`, `\tfamily = ${def.family.trim()}`]
     if (def.graphicalFaith?.trim()) lines.push(`\tgraphical_faith = ${def.graphicalFaith.trim()}`)
     if (def.pietyIconGroup?.trim()) {
@@ -665,6 +863,71 @@ function lineIndentAt(text: string, offset: number): string {
   return text.slice(lineStart).match(/^[ \t]*/)![0]
 }
 
+export function listRiteFiles(modPath: string): string[] {
+  return effectiveFiles(null, modPath, [], RITE_DIR)
+    .map((path) => basename(path))
+    .sort()
+}
+
+export function saveRite(modPath: string, file: string, id: string, patch: RitePatch): SaveResult {
+  try {
+    if (!isTxtFileName(file)) return { ok: false, error: 'Invalid file name' }
+    const path = join(modPath, ...RITE_DIR.split('/'), file)
+    const text = readFileSync(path, 'utf-8')
+    const block = scanBlocks(text).find((b) => norm(b.key) === norm(id))
+    if (!block) return { ok: false, error: `${id} not found in ${file}` }
+    const body = text.slice(block.bodyStart, block.bodyEnd)
+    const ed = makeEditor(setColor(body, patch.color, parseColor(body, new Map())))
+    for (const [key, value] of [
+      ['faith', patch.faith],
+      ['icon', patch.icon],
+      ['founder', patch.founder],
+      ['create', patch.create],
+      ['convert', patch.convert]
+    ] as const) {
+      setScalar(ed, [key], value, { ignoreCase: true })
+    }
+    setListIfChanged(ed, 'doctrines', patch.doctrines)
+    setListIfChanged(ed, 'tenets', patch.tenets)
+    writeFileSync(path, spliceBody(text, block, ed.lines.join('\n')), 'utf-8')
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+export function createRite(modPath: string, file: string, def: NewRite): SaveResult {
+  try {
+    const id = def.id.trim()
+    if (!KEY_CHARS.test(id)) return { ok: false, error: 'Invalid rite id' }
+    if (!isTxtFileName(file)) return { ok: false, error: 'Invalid file name' }
+    for (const path of effectiveFiles(null, modPath, [], RITE_DIR)) {
+      if (scanBlocks(readFileSync(path, 'utf-8')).some((b) => norm(b.key) === norm(id))) {
+        return { ok: false, error: `Rite ${id} already exists in ${basename(path)}` }
+      }
+    }
+    const lines = [`${id} = {`]
+    for (const [key, value] of [
+      ['faith', def.faith],
+      ['icon', def.icon],
+      ['founder', def.founder],
+      ['create', def.create],
+      ['convert', def.convert]
+    ] as const) {
+      if (value?.trim()) lines.push(`\t${key} = ${value.trim()}`)
+    }
+    if (def.color && /^#[0-9a-fA-F]{6}$/.test(def.color))
+      lines.push(`\tcolor = ${colorTriple(def.color)}`)
+    if (def.tenets.length) lines.push(`\ttenets = { ${def.tenets.join(' ')} }`)
+    if (def.doctrines.length) lines.push(`\tdoctrines = { ${def.doctrines.join(' ')} }`)
+    lines.push('}')
+    appendBlock(join(modPath, ...RITE_DIR.split('/')), file, lines)
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 /**
  * Nest a brand-new faith block into `religionId`'s `faiths = { … }` block —
  * created at the end of the religion's body when it doesn't exist yet. The
@@ -679,6 +942,45 @@ export function createFaith(modPath: string, religionId: string, def: NewFaith):
   try {
     const idError = newIdError(modPath, 'faith', def.id)
     if (idError !== null) return { ok: false, error: idError }
+    if (!KEY_CHARS.test(religionId.trim()))
+      return { ok: false, error: 'Invalid parent religion id' }
+    if (
+      def.format === '1.20' ||
+      (def.format === undefined && religionFormat(null, modPath) === '1.20')
+    ) {
+      const file = def.file ?? `${def.id.trim()}.txt`
+      if (!isTxtFileName(file)) return { ok: false, error: 'Invalid faith file name' }
+      if (def.eminentHolySites?.some((s) => def.holySites.some((h) => norm(s) === norm(h)))) {
+        return { ok: false, error: 'A holy site cannot be both ordinary and eminent' }
+      }
+      const lines = [
+        `${def.id.trim()} = {`,
+        '\tfaith_details = {',
+        `\t\treligion = ${religionId.trim()}`
+      ]
+      if (def.color && /^#[0-9a-fA-F]{6}$/.test(def.color))
+        lines.push(`\t\tcolor = ${colorTriple(def.color)}`)
+      for (const [key, value] of [
+        ['icon', def.icon],
+        ['reformed_icon', def.reformedIcon],
+        ['religious_head', def.religiousHead]
+      ] as const) {
+        if (value?.trim()) lines.push(`\t\t${key} = ${value.trim()}`)
+      }
+      lines.push('\t}')
+      if (def.mainRite?.trim()) lines.push(`\tmain_rite = ${def.mainRite.trim()}`)
+      for (const [key, values] of [
+        ['holy_sites', def.holySites],
+        ['eminent_holy_sites', def.eminentHolySites],
+        ['doctrines', def.doctrines],
+        ['tenets', def.tenets]
+      ] as const) {
+        if (values?.length) lines.push(`\t${key} = { ${values.join(' ')} }`)
+      }
+      lines.push('}')
+      appendBlock(join(modPath, ...FAITH_DIR.split('/')), file, lines)
+      return { ok: true }
+    }
 
     let found: { path: string; text: string; religion: BlockSpan } | null = null
     for (const path of effectiveFiles(null, modPath, [], RELIGION_DIR)) {

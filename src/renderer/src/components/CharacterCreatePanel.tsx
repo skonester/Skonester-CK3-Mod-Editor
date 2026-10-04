@@ -44,6 +44,7 @@ interface Props {
   onOpenCulture: (id: string) => void
   /** Open a faith in the Faith Editor */
   onOpenFaith: (id: string) => void
+  onOpenRite: (id: string) => void
   /** Called after a successful create with the target file and new id */
   onCreated: (file: string, id: string) => void
   onClose: () => void
@@ -69,6 +70,7 @@ export default function CharacterCreatePanel({
   onOpenLineage,
   onOpenCulture,
   onOpenFaith,
+  onOpenRite,
   onCreated,
   onClose
 }: Props): React.JSX.Element {
@@ -82,6 +84,7 @@ export default function CharacterCreatePanel({
     death: null,
     culture: null,
     faith: null,
+    rite: null,
     father: null,
     mother: null,
     traits: [],
@@ -139,7 +142,7 @@ export default function CharacterCreatePanel({
     targetFile !== '' &&
     !!draft.name?.trim() &&
     !!draft.culture &&
-    !!draft.faith &&
+    (!!draft.faith || !!draft.rite) &&
     !!draft.birth &&
     !badBirth &&
     !badDeath &&
@@ -208,9 +211,7 @@ export default function CharacterCreatePanel({
           aria-invalid={idInvalid || idTaken || undefined}
           onChange={(e) => set({ id: e.target.value })}
         />
-        {idTaken && (
-          <p className="text-xs text-destructive">This id already exists in the mod.</p>
-        )}
+        {idTaken && <p className="text-xs text-destructive">This id already exists in the mod.</p>}
         {idInvalid && (
           <p className="text-xs text-destructive">
             Letters, digits, _ . - &apos; only — no spaces.
@@ -247,6 +248,7 @@ export default function CharacterCreatePanel({
           onOpenLineage={onOpenLineage}
           onOpenCulture={onOpenCulture}
           onOpenFaith={onOpenFaith}
+          onOpenRite={onOpenRite}
           badBirth={badBirth}
           badDeath={badDeath}
           markRequired

@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'fs'
-import { join, sep } from 'path'
+import { join } from 'path'
 import { readLocalization } from './localization'
-import { scanBlocks, scanScalars } from './pdx'
+import { scanBlocks, scanScalars, scanScalarsCI } from './pdx'
+import { FAITH_DIR, RITE_DIR, TENET_DIR, nestedBody } from './religionSchema'
 import type { RefEntry, RefKind, RefLocation, ReferenceData } from '@shared/types'
 
 /**
@@ -28,23 +29,37 @@ export function effectiveFiles(
   gameDir: string | null,
   modPath: string | null,
   replacePaths: string[],
-  relDir: string
+  relDir: string,
+  recursive = false
 ): string[] {
   const files = new Map<string, string>() // file name -> full path
   const normalizedRel = relDir.replace(/\\/g, '/').toLowerCase()
-  const replaced = replacePaths.some((rp) => {
-    const nrp = rp.replace(/\\/g, '/').toLowerCase()
-    return normalizedRel === nrp || normalizedRel.startsWith(nrp + '/')
-  })
+  const isReplaced = (rel: string): boolean =>
+    replacePaths.some((rp) => {
+      const nrp = rp.replace(/\\/g, '/').toLowerCase()
+      return rel.toLowerCase() === nrp || rel.toLowerCase().startsWith(nrp + '/')
+    })
+  const replaced = isReplaced(normalizedRel)
   const dirs: string[] = []
   if (gameDir && !replaced) dirs.push(join(gameDir, ...relDir.split('/')))
   if (modPath) dirs.push(join(modPath, ...relDir.split('/')))
   for (const dir of dirs) {
     if (!existsSync(dir)) continue
-    for (const entry of readdirSync(dir)) {
-      if (!entry.toLowerCase().endsWith('.txt')) continue
-      files.set(entry, dir + sep + entry)
+    const visit = (folder: string, prefix: string): void => {
+      for (const entry of readdirSync(folder, { withFileTypes: true })) {
+        const rel = prefix + entry.name
+        if (
+          !isUnderDir(folder, modPath) &&
+          folder !== modPath &&
+          isReplaced(normalizedRel + '/' + rel)
+        )
+          continue
+        if (entry.isDirectory() && recursive) visit(join(folder, entry.name), rel + '/')
+        else if (entry.isFile() && entry.name.toLowerCase().endsWith('.txt'))
+          files.set(rel.toLowerCase(), join(folder, entry.name))
+      }
     }
+    visit(dir, '')
   }
   return [...files.values()]
 }
@@ -67,7 +82,15 @@ function listCultures(gameDir: string | null, modPath: string | null, replacePat
 
 function listFaiths(gameDir: string | null, modPath: string | null, replacePaths: string[]): string[] {
   const keys = new Set<string>()
-  for (const file of effectiveFiles(gameDir, modPath, replacePaths, 'common/religion/religion_types')) {
+  for (const file of effectiveFiles(gameDir, modPath, replacePaths, FAITH_DIR)) {
+    for (const key of topLevelKeys(file)) keys.add(key)
+  }
+  for (const file of effectiveFiles(
+    gameDir,
+    modPath,
+    replacePaths,
+    'common/religion/religion_types'
+  )) {
     try {
       const text = readFileSync(file, 'utf-8')
       for (const religion of scanBlocks(text)) {
@@ -86,7 +109,54 @@ function listFaiths(gameDir: string | null, modPath: string | null, replacePaths
   return [...keys].sort()
 }
 
-function listTraits(gameDir: string | null, modPath: string | null, replacePaths: string[]): string[] {
+/** Scripted rites plus faiths for which CK3 creates an implicit same-id rite. */
+function listRites(
+  gameDir: string | null,
+  modPath: string | null,
+  replacePaths: string[]
+): Map<string, string> {
+  const keys = new Map<string, string>() // rite id -> localization key
+  const parents = new Set<string>()
+  const seen = new Set<string>()
+  const files = effectiveFiles(gameDir, modPath, replacePaths, RITE_DIR).sort(
+    (a, b) => Number(isUnderDir(b, modPath)) - Number(isUnderDir(a, modPath))
+  )
+  for (const file of files) {
+    let text: string
+    try {
+      text = readFileSync(file, 'utf-8')
+    } catch {
+      continue
+    }
+    for (const block of scanBlocks(text)) {
+      if (seen.has(block.key.toLowerCase())) continue
+      seen.add(block.key.toLowerCase())
+      const scalars = scanScalarsCI(text.slice(block.bodyStart, block.bodyEnd))
+      keys.set(block.key, scalars.get('name') ?? block.key)
+      const faith = scalars.get('faith')
+      if (faith) parents.add(faith.toLowerCase())
+    }
+  }
+  for (const file of effectiveFiles(gameDir, modPath, replacePaths, FAITH_DIR)) {
+    let text: string
+    try {
+      text = readFileSync(file, 'utf-8')
+    } catch {
+      continue
+    }
+    for (const block of scanBlocks(text)) {
+      if (!parents.has(block.key.toLowerCase()) && !seen.has(block.key.toLowerCase()))
+        keys.set(block.key, block.key)
+    }
+  }
+  return keys
+}
+
+function listTraits(
+  gameDir: string | null,
+  modPath: string | null,
+  replacePaths: string[]
+): string[] {
   const keys = new Set<string>()
   for (const file of effectiveFiles(gameDir, modPath, replacePaths, 'common/traits')) {
     for (const key of topLevelKeys(file)) keys.add(key)
@@ -150,6 +220,7 @@ export function getReferenceData(
 ): ReferenceData {
   const cultures = listCultures(gameDir, modPath, replacePaths)
   const faiths = listFaiths(gameDir, modPath, replacePaths)
+  const rites = listRites(gameDir, modPath, replacePaths)
   const traits = listTraits(gameDir, modPath, replacePaths)
   // Kept apart: a character's `dynasty` and `dynasty_house` are separate
   // fields, each offering only the ids that are valid for it
@@ -160,7 +231,12 @@ export function getReferenceData(
   // `trait_<id>`; dynasties and houses under whatever their `name` line names.
   // Those keys are spread across the whole english tree (DLC folders included),
   // so the scan is narrowed by key rather than by folder.
-  const wanted = new Set<string>([...cultures, ...faiths, ...traits.map(traitLocKey)])
+  const wanted = new Set<string>([
+    ...cultures,
+    ...faiths,
+    ...rites.values(),
+    ...traits.map(traitLocKey)
+  ])
   for (const names of [dynastyNames, houseNames]) {
     for (const key of names.values()) if (key !== null) wanted.add(key)
   }
@@ -175,6 +251,7 @@ export function getReferenceData(
   return {
     cultures: entries(cultures, (id) => id),
     faiths: entries(faiths, (id) => id),
+    rites: entries([...rites.keys()].sort(), (id) => rites.get(id) ?? id),
     traits: entries(traits, traitLocKey),
     dynasties: entries([...dynastyNames.keys()].sort(), (id) => dynastyNames.get(id) ?? null),
     houses: entries([...houseNames.keys()].sort(), (id) => houseNames.get(id) ?? null),
@@ -191,7 +268,9 @@ export function getReferenceData(
 /** Directories a given kind of reference data is defined in */
 const KIND_DIRS: Record<RefKind, string[]> = {
   culture: ['common/culture/cultures'],
-  faith: ['common/religion/religion_types'],
+  faith: [FAITH_DIR, 'common/religion/religion_types'],
+  rite: [RITE_DIR, FAITH_DIR],
+  tenet: [TENET_DIR],
   trait: ['common/traits'],
   dynasty: ['common/dynasties', 'common/dynasty_houses'],
   dna: ['common/dna_data'],
@@ -237,6 +316,11 @@ function lineOf(text: string, offset: number): number {
 function findDefinition(text: string, kind: RefKind, id: string): number | null {
   if (kind === 'title') return findTitleDefinition(text, id)
   if (kind === 'faith') {
+    const standalone = scanBlocks(text).find(
+      (b) =>
+        b.key === id && nestedBody(text.slice(b.bodyStart, b.bodyEnd), 'faith_details') !== null
+    )
+    if (standalone) return standalone.start
     for (const religion of scanBlocks(text)) {
       const body = text.slice(religion.bodyStart, religion.bodyEnd)
       for (const sub of scanBlocks(body)) {

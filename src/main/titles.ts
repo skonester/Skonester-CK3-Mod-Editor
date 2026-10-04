@@ -137,8 +137,8 @@ function governmentIds(
 }
 
 /**
- * Law ids from `common/laws`: laws are the depth-1 blocks of top-level law
- * groups. Succession laws all spell their id `*_law`, which conveniently
+ * Law ids from common/laws: top-level in 1.20, nested in groups in legacy
+ * files. Succession laws spell their id *_law, which conveniently
  * excludes realm laws (crown_authority_2) and group settings — the list feeds
  * a suggestion picker, not validation, so a stray extra id is harmless.
  */
@@ -156,6 +156,8 @@ function successionLawIds(
       continue
     }
     for (const group of scanBlocks(text)) {
+      // 1.20 moved law groups to common/law_groups; laws are now top-level.
+      if (/_law$/i.test(group.key)) ids.add(group.key)
       const body = text.slice(group.bodyStart, group.bodyEnd)
       for (const law of scanBlocks(body)) {
         if (/_law$/i.test(law.key)) ids.add(law.key)
@@ -176,7 +178,7 @@ function titlesWithHistory(
   replacePaths: string[]
 ): Set<string> {
   const ids = new Set<string>()
-  for (const path of effectiveFiles(gameDir, modPath, replacePaths, 'history/titles')) {
+  for (const path of effectiveFiles(gameDir, modPath, replacePaths, 'history/titles', true)) {
     let text: string
     try {
       text = readFileSync(path, 'utf-8')

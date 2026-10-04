@@ -21,12 +21,14 @@ import type {
   NewFaith,
   NewHouse,
   NewReligion,
+  NewRite,
   NewTitle,
   RefKind,
   RefLocation,
   ReferenceData,
   ReligionData,
   ReligionPatch,
+  RitePatch,
   SaveResult,
   TitleData,
   TitleDetail,
@@ -147,6 +149,12 @@ const api = {
     ipcRenderer.invoke('ck3:createReligion', modPath, file, def),
   createFaith: (modPath: string, religionId: string, def: NewFaith): Promise<SaveResult> =>
     ipcRenderer.invoke('ck3:createFaith', modPath, religionId, def),
+  listRiteFiles: (modPath: string): Promise<string[]> =>
+    ipcRenderer.invoke('ck3:listRiteFiles', modPath),
+  createRite: (modPath: string, file: string, def: NewRite): Promise<SaveResult> =>
+    ipcRenderer.invoke('ck3:createRite', modPath, file, def),
+  saveRite: (modPath: string, file: string, id: string, patch: RitePatch): Promise<SaveResult> =>
+    ipcRenderer.invoke('ck3:saveRite', modPath, file, id, patch),
   getTitleData: (
     gameDir: string | null,
     modPath: string | null,

@@ -423,6 +423,7 @@ function parseBlockDetail(body: string, id: string, file: string): CharacterDeta
     death: deathBlock ? cleanDate(deathBlock.key) : null,
     culture: scalars.get('culture') ?? null,
     faith: scalars.get('faith') ?? scalars.get('religion') ?? null,
+    rite: scalars.get('rite') ?? null,
     father: scalars.get('father') ?? null,
     mother: scalars.get('mother') ?? null,
     traits: scanRepeatedScalar(body, 'trait'),
@@ -941,6 +942,7 @@ export function saveCharacter(
     set(['dynasty_house'], detail.house)
     set(['culture'], detail.culture)
     set(['faith', 'religion'], detail.faith)
+    if (detail.rite !== undefined) set(['rite'], detail.rite)
     set(['father'], detail.father)
     set(['mother'], detail.mother)
     for (const key of STAT_KEYS) {
@@ -1045,7 +1047,7 @@ export function createCharacter(
     const required: [string, string | null][] = [
       ['Name', detail.name],
       ['Culture', detail.culture],
-      ['Faith', detail.faith],
+      ['Faith or rite', detail.faith?.trim() || detail.rite || null],
       ['Birth date', detail.birth]
     ]
     for (const [label, value] of required) {
@@ -1077,6 +1079,7 @@ export function createCharacter(
     push('dynasty_house', detail.house)
     push('culture', detail.culture)
     push('faith', detail.faith)
+    push('rite', detail.rite ?? null)
     push('father', detail.father)
     push('mother', detail.mother)
     for (const trait of detail.traits) push('trait', trait)

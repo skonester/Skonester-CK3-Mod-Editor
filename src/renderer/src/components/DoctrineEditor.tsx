@@ -30,6 +30,7 @@ interface Props {
    * faith inherits its religion's. Empty when editing a religion itself.
    */
   inheritedFrom?: { label: string; doctrines: string[] }
+  inheritanceDescription?: string
   /** Doctrines belonging to no scanned group, so nothing is edited away blind */
   ungrouped: RefEntry[]
   disabled: boolean
@@ -51,6 +52,7 @@ export default function DoctrineEditor({
   groups,
   doctrines,
   inheritedFrom,
+  inheritanceDescription,
   ungrouped,
   disabled,
   onChange,
@@ -154,9 +156,10 @@ export default function DoctrineEditor({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          {inheritedFrom
-            ? `Groups left unset fall back to ${inheritedFrom.label}.`
-            : 'Every faith of this religion inherits these unless it sets its own.'}
+          {inheritanceDescription ??
+            (inheritedFrom
+              ? `Groups left unset fall back to ${inheritedFrom.label}.`
+              : 'Every faith of this religion inherits these unless it sets its own.')}
         </p>
         <ToggleGroup
           type="single"

@@ -50,6 +50,7 @@ const TOOLS = [
   { to: '/dynasties', label: 'Dynasty & House Editor', icon: Shield },
   { to: '/titles', label: 'Title Editor', icon: Castle },
   { to: '/faiths', label: 'Faith Editor', icon: Church },
+  { to: '/rites', label: 'Rite Editor', icon: Church },
   { to: '/religions', label: 'Religion Editor', icon: BookOpen },
   { to: '/cultures', label: 'Culture Editor', icon: Landmark }
 ] as const
@@ -73,7 +74,9 @@ export default function RootLayout(): React.JSX.Element {
   const [modDialogOpen, setModDialogOpen] = useState(false)
 
   if (!settings) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">Loading…</div>
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground">Loading…</div>
+    )
   }
 
   const configured = Boolean(settings.gameDir && settings.modDir)

@@ -28,25 +28,7 @@ import {
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { formatCalendarDate, isValidCK3Date } from '@/lib/ck3Date'
-
-/**
- * Drafts persisted before a field existed (Dynasty/House, then Female, then
- * Spouses and Sexuality) miss its key. Treat those as unset so a resumed draft
- * neither reads as dirty against a freshly parsed character nor writes
- * `undefined` back.
- */
-function withDefaults(detail: CharacterDetail): CharacterDetail {
-  return {
-    ...detail,
-    house: detail.house ?? null,
-    female: detail.female ?? null,
-    sexuality: detail.sexuality ?? null,
-    // Spouse rows saved before the concubine flag existed miss that key too
-    spouses: (detail.spouses ?? []).map((s) => ({ ...s, concubine: s.concubine === true })),
-    relations: detail.relations ?? [],
-    dna: detail.dna ?? null
-  }
-}
+import { normalizeCharacterDraft as withDefaults } from '@/lib/characterDraft'
 
 interface Props {
   modPath: string
@@ -69,6 +51,7 @@ interface Props {
   onOpenCulture: (id: string) => void
   /** Open a faith in the Faith Editor */
   onOpenFaith: (id: string) => void
+  onOpenRite: (id: string) => void
   /** Open the create-character panel with these prefills (the Add child button) */
   onCreateChild: (prefill: CharacterSearch) => void
   /** Persisted unsaved edits for this character, if any; read once per open */
@@ -97,6 +80,7 @@ export default function CharacterDetailPanel({
   onOpenLineage,
   onOpenCulture,
   onOpenFaith,
+  onOpenRite,
   onCreateChild,
   storedDraft,
   onDraftChange,
@@ -126,7 +110,8 @@ export default function CharacterDetailPanel({
     setDraft(null)
     setError(null)
     setStale(false)
-    window.ck3tools.getCharacter(modPath, file, id).then((d) => {
+    window.ck3tools.getCharacter(modPath, file, id).then((parsed) => {
+      const d = parsed === null ? null : withDefaults(parsed)
       setOriginal(d)
       if (!d) {
         setDraft(null)
@@ -135,8 +120,8 @@ export default function CharacterDetailPanel({
       // Resume a persisted draft; `original` stays the file's CURRENT state so
       // dirty/save/revert all work against what's really on disk.
       if (storedDraft) {
-        setDraft(withDefaults(structuredClone(storedDraft.draft)))
-        setStale(JSON.stringify(withDefaults(storedDraft.original)) !== JSON.stringify(d))
+        setDraft(withDefaults(structuredClone(storedDraft.draft), d))
+        setStale(JSON.stringify(withDefaults(storedDraft.original, d)) !== JSON.stringify(d))
       } else {
         setDraft(structuredClone(d))
       }
@@ -238,7 +223,8 @@ export default function CharacterDetailPanel({
     const prefill: CharacterSearch = {
       file,
       culture: draft.culture ?? undefined,
-      faith: draft.faith ?? undefined
+      faith: draft.faith ?? undefined,
+      rite: draft.rite ?? undefined
     }
     if (/^yes$/i.test(draft.female ?? '')) {
       prefill.mother = original.id
@@ -284,8 +270,7 @@ export default function CharacterDetailPanel({
    */
   const thisIsMother = /^yes$/i.test(draft.female ?? '')
   const otherParentLabel = thisIsMother ? 'Father' : 'Mother'
-  const otherParent = (c: CharacterSummary): string | null =>
-    thisIsMother ? c.father : c.mother
+  const otherParent = (c: CharacterSummary): string | null => (thisIsMother ? c.father : c.mother)
 
   /**
    * Same convention as the date fields: the era year alone while the calendar
@@ -368,9 +353,7 @@ export default function CharacterDetailPanel({
       <div className="flex items-center justify-between border-b px-4 py-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
           {original.name ?? original.id}
-          {dirty && (
-            <span className="size-2 rounded-full bg-primary" title="Unsaved changes" />
-          )}
+          {dirty && <span className="size-2 rounded-full bg-primary" title="Unsaved changes" />}
         </h2>
         <div className="flex shrink-0 items-center gap-2">
           <DateFormatToggle calendar={calendar} showRaw={showRawDates} onChange={setShowRawDates} />
@@ -396,6 +379,7 @@ export default function CharacterDetailPanel({
           onOpenLineage={onOpenLineage}
           onOpenCulture={onOpenCulture}
           onOpenFaith={onOpenFaith}
+          onOpenRite={onOpenRite}
           badBirth={badBirth}
           badDeath={badDeath}
           identitySlot={

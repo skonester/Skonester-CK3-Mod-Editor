@@ -50,9 +50,8 @@ interface Props {
  * panel right after creation, where holy sites and doctrines are edited with
  * the full controls rather than duplicated here.
  *
- * Unlike other created entities a faith nests inside its religion's block, so
- * the parent must be a religion the mod defines; there is no target-file
- * picker because the religion's own file is the only place it can go.
+ * In 1.20 a faith gets its own <id>.txt file and may use any loaded religion.
+ * Legacy faiths still nest inside a mod religion's block.
  */
 export default function FaithCreatePanel({
   modPath,
@@ -86,9 +85,9 @@ export default function FaithCreatePanel({
   )
   const iconOptions: RefEntry[] = useMemo(() => iconNames.map(idOnly), [iconNames])
 
-  // Only religions the mod defines can take new faiths: a faith nests inside
-  // its religion's block, and game files can't be edited
-  const modReligions = data.religions.filter((r) => r.inMod)
+  // Standalone 1.20 faiths can use game parents; legacy creation edits a mod parent.
+  const modern = data.format === '1.20'
+  const modReligions = data.religions.filter((r) => modern || r.inMod)
   const religionOptions = modReligions.map((r) => ({ id: r.id, name: r.localizedName }))
 
   const id = draft.id.trim()
@@ -100,10 +99,12 @@ export default function FaithCreatePanel({
   const clash =
     id === ''
       ? null
-      : ([
-          ['religion', data.religions.find((r) => r.inMod && normId(r.id) === normId(id))],
-          ['faith', data.faiths.find((f) => f.inMod && normId(f.id) === normId(id))]
-        ] as const).find(([, hit]) => hit !== undefined) ?? null
+      : ((
+          [
+            ['religion', data.religions.find((r) => r.inMod && normId(r.id) === normId(id))],
+            ['faith', data.faiths.find((f) => f.inMod && normId(f.id) === normId(id))]
+          ] as const
+        ).find(([, hit]) => hit !== undefined) ?? null)
 
   // Not a clash: shadowing a base-game id is how you override one, but it's
   // worth saying out loud before it happens by accident
@@ -122,6 +123,7 @@ export default function FaithCreatePanel({
     try {
       const result: SaveResult = await window.ck3tools.createFaith(modPath, draft.religion!, {
         id,
+        format: data.format,
         color: draft.color,
         icon: draft.icon,
         reformedIcon: null,
@@ -162,13 +164,25 @@ export default function FaithCreatePanel({
             onNavigate={onOpenReligion}
           />
           <p className="text-xs text-muted-foreground">
-            The faith is written into this religion&apos;s{' '}
-            <code className="font-mono">faiths</code> block, so only religions the mod defines can
-            take one.
+            {modern ? (
+              <>
+                The faith is written to{' '}
+                <code className="font-mono">
+                  common/religion/faith_types/{draft.id.trim() || '<id>'}.txt
+                </code>
+                . You can use a base-game religion as its parent.
+              </>
+            ) : (
+              <>
+                The faith is written into this religion&apos;s{' '}
+                <code className="font-mono">faiths</code> block, so only religions the mod defines
+                can take one.
+              </>
+            )}
           </p>
           {modReligions.length === 0 && (
             <p className="text-xs text-destructive">
-              The mod defines no religions — create one first.
+              No parent religions are available — create one first.
             </p>
           )}
         </div>

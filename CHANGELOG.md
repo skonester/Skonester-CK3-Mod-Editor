@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — CK3 1.20 support
+
+- Read and edit standalone faiths and nested religion details while preserving legacy definitions.
+- Add a Rite Editor with parent faith links, core tenets, doctrines, founder titles, and persistent drafts.
+- Add independent character rite fields, main-rite selectors, and eminent holy sites.
+- Resolve doctrine membership from 1.20 declarations and keep tenets in their own database.
+- Read top-level succession laws and nested ecclesiastical title history.
+- Verify every religion, faith, and rite in the supplied 1.20.0.3 data round-trips byte-for-byte on a no-op save.
+
 ## v0.1.0 — first release
 
 First packaged build of CK3 Tools: an Electron desktop app for editing Crusader

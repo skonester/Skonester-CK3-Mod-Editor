@@ -30,10 +30,13 @@ import {
 import {
   createFaith,
   createReligion,
+  createRite,
   getReligionData,
   listReligionFiles,
+  listRiteFiles,
   saveFaith,
-  saveReligion
+  saveReligion,
+  saveRite
 } from './religions'
 import { getFaithIcons, listFaithIcons } from './faithIcons'
 import { createTitle, getTitle, getTitleData, listTitleFiles, saveTitle } from './titles'
@@ -63,9 +66,11 @@ import type {
   NewFaith,
   NewHouse,
   NewReligion,
+  NewRite,
   NewTitle,
   RefKind,
   ReligionPatch,
+  RitePatch,
   TitleHistoryEntryPatch,
   TitlePatch
 } from '@shared/types'
@@ -204,6 +209,15 @@ function registerIpc(): void {
       saveReligion(modPath, file, religionId, patch)
   )
   ipcMain.handle('ck3:listReligionFiles', (_e, modPath: string) => listReligionFiles(modPath))
+  ipcMain.handle('ck3:listRiteFiles', (_e, modPath: string) => listRiteFiles(modPath))
+  ipcMain.handle('ck3:createRite', (_e, modPath: string, file: string, def: NewRite) =>
+    createRite(modPath, file, def)
+  )
+  ipcMain.handle(
+    'ck3:saveRite',
+    (_e, modPath: string, file: string, id: string, patch: RitePatch) =>
+      saveRite(modPath, file, id, patch)
+  )
   ipcMain.handle('ck3:createReligion', (_e, modPath: string, file: string, def: NewReligion) =>
     createReligion(modPath, file, def)
   )

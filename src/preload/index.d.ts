@@ -20,12 +20,14 @@ import type {
   NewFaith,
   NewHouse,
   NewReligion,
+  NewRite,
   NewTitle,
   RefKind,
   RefLocation,
   ReferenceData,
   ReligionData,
   ReligionPatch,
+  RitePatch,
   SaveResult,
   TitleData,
   TitleDetail,
@@ -117,8 +119,11 @@ export interface Ck3ToolsApi {
   /** The mod's .txt files under common/religion/religion_types, for the create picker */
   listReligionFiles: (modPath: string) => Promise<string[]>
   createReligion: (modPath: string, file: string, def: NewReligion) => Promise<SaveResult>
-  /** Nests the new faith into `religionId`'s faiths block; the religion must be mod-defined */
+  /** Creates a standalone 1.20 faith, or nests a legacy faith into a mod religion */
   createFaith: (modPath: string, religionId: string, def: NewFaith) => Promise<SaveResult>
+  listRiteFiles: (modPath: string) => Promise<string[]>
+  createRite: (modPath: string, file: string, def: NewRite) => Promise<SaveResult>
+  saveRite: (modPath: string, file: string, id: string, patch: RitePatch) => Promise<SaveResult>
   /** The de jure title forest plus government/succession-law reference lists */
   getTitleData: (
     gameDir: string | null,

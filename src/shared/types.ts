@@ -28,7 +28,14 @@ export interface AppSettings {
 }
 
 /** The editors that remember favorites, recents and unsaved drafts of their rows. */
-export type ToolKey = 'characters' | 'dynasties' | 'cultures' | 'faiths' | 'religions' | 'titles'
+export type ToolKey =
+  | 'characters'
+  | 'dynasties'
+  | 'cultures'
+  | 'faiths'
+  | 'rites'
+  | 'religions'
+  | 'titles'
 
 /**
  * One remembered row of an editor: enough to list it as a chip and to
@@ -236,8 +243,10 @@ export interface CharacterDetail {
   birth: string | null
   death: string | null
   culture: string | null
-  /** Faith key; read from either `faith =` or `religion =` in the file */
+  /** Faith key; `religion =` is a legacy alias for this field */
   faith: string | null
+  /** CK3 1.20 rite key, independent of the faith's main-rite fallback */
+  rite?: string | null
   /** Character id of the father, as written in the file */
   father: string | null
   /** Character id of the mother, as written in the file */
@@ -487,17 +496,21 @@ export interface FaithColor {
 }
 
 /**
- * A faith definition, nested two levels deep in a religion file as
- * `<religion> = { faiths = { <faith> = { … } } }`.
+ * A standalone CK3 1.20 faith or a legacy faith nested in a religion's faiths block.
  */
 export interface FaithDef {
   id: string
-  /** File name within common/religion/religion_types */
+  /** File name within faith_types (1.20) or religion_types (legacy) */
   file: string
   /** Whether the definition lives in the mod (editable) vs. the base game */
   inMod: boolean
-  /** Id of the religion whose `faiths` block holds this faith */
+  /** Parent religion id, from faith_details in 1.20 or the containing legacy block */
   religion: string
+  /** Absent in older mocks and stored data; the parser always supplies it */
+  format?: ReligionFormat
+  mainRite?: string | null
+  tenets?: string[]
+  eminentHolySites?: string[]
   color: FaithColor | null
   /** `icon =` value: a file name (sans .dds) under gfx/interface/icons/faith */
   icon: string | null
@@ -505,11 +518,11 @@ export interface FaithDef {
   /** `religious_head =` landed title id, e.g. "d_karaism" */
   religiousHead: string | null
   /**
-   * Every `doctrine =` value in file order, tenets included. Duplicates are
-   * kept as written so an untouched save stays byte-for-byte identical.
+   * Values of doctrines = { ... } in 1.20, or repeated doctrine scalars in
+   * legacy files (where tenets are included). Duplicates are kept as written.
    */
   doctrines: string[]
-  /** `holy_site =` values, in file order */
+  /** Ordinary holy_sites block (1.20) or repeated holy_site scalars (legacy) */
   holySites: string[]
   /** Display name from localization (faiths localize under their own id) */
   localizedName: string | null
@@ -520,6 +533,7 @@ export interface ReligionDef {
   id: string
   file: string
   inMod: boolean
+  format?: ReligionFormat
   /** `family =` value, an id from common/religion/religion_family_types */
   family: string | null
   graphicalFaith: string | null
@@ -551,13 +565,51 @@ export interface FaithAdherent {
   /** File name within history/characters */
   file: string
   name: string | null
-  /** Raw `faith =` / `religion =` value as written in the history file */
+  /** Faith resolved from the character's rite, or its faith/religion fallback */
   faith: string
+  /** Raw rite key, resolved to its parent faith for the faith member lists */
+  rite?: string | null
+}
+
+export type ReligionFormat = 'legacy' | '1.20'
+
+/** A scripted rite from common/religion/rite_types. */
+export interface RiteDef {
+  id: string
+  file: string
+  inMod: boolean
+  localizedName: string | null
+  faith: string | null
+  color: FaithColor | null
+  icon: string | null
+  founder: string | null
+  create: string | null
+  convert: string | null
+  doctrines: string[]
+  tenets: string[]
+}
+
+export interface RitePatch {
+  faith: string | null
+  color: string | null
+  icon: string | null
+  founder: string | null
+  create: string | null
+  convert: string | null
+  doctrines: string[]
+  tenets: string[]
+}
+
+export interface NewRite extends RitePatch {
+  id: string
 }
 
 export interface ReligionData {
   religions: ReligionDef[]
   faiths: FaithDef[]
+  format?: ReligionFormat
+  rites?: RiteDef[]
+  tenets?: RefEntry[]
   /** Doctrine groups, mod definitions layered over the game's */
   groups: DoctrineGroup[]
   /** Doctrines that belong to no scanned group, so nothing is hidden from view */
@@ -569,6 +621,10 @@ export interface ReligionData {
 
 /** Editable faith fields; null clears the line, [] clears every repeat */
 export interface FaithPatch {
+  format?: ReligionFormat
+  mainRite?: string | null
+  tenets?: string[]
+  eminentHolySites?: string[]
   /** "#rrggbb"; ignored when the file's colour isn't a rewritable triple */
   color: string | null
   icon: string | null
@@ -590,21 +646,22 @@ export interface ReligionPatch {
  * A brand-new religion definition: an id for the top-level block plus the
  * same editable fields a patch carries. `family` is mandatory (the game
  * requires one); null or blank fields are simply not written. The block is
- * created with an empty `faiths = { }` ready to take faiths.
+ * created with religion_details in 1.20, or an empty faiths block in legacy format.
  */
 export interface NewReligion extends ReligionPatch {
   /** Top-level key of the new block, e.g. "hellenism_religion" */
   id: string
+  format?: ReligionFormat
 }
 
 /**
- * A brand-new faith definition. Unlike every other created entity it is NOT a
- * top-level block: it nests into its religion's `faiths = { … }` block, so
- * creation targets a religion (which must be defined in the mod) rather than
- * a file.
+ * A new standalone 1.20 faith, or a legacy faith nested into a mod religion.
+ * Standalone faiths may use a base-game religion without editing that religion.
  */
 export interface NewFaith extends FaithPatch {
   id: string
+  /** Target file for a standalone 1.20 definition; defaults to <id>.txt */
+  file?: string
 }
 
 /**
@@ -841,6 +898,7 @@ export interface RefEntry {
 export interface ReferenceData {
   cultures: RefEntry[]
   faiths: RefEntry[]
+  rites?: RefEntry[]
   traits: RefEntry[]
   /** Ids from `common/dynasties` */
   dynasties: RefEntry[]
@@ -859,6 +917,8 @@ export interface ReferenceData {
 export type RefKind =
   | 'culture'
   | 'faith'
+  | 'rite'
+  | 'tenet'
   | 'trait'
   | 'dynasty'
   | 'dna'

@@ -1,6 +1,6 @@
 # Skonester CK3 Mod Editor
 
-Electron-based suite of editing tools for Crusader Kings III: Character Editor, Dynasty & House Editor, Faith Editor, Religion Editor, Culture Editor.
+Electron-based suite of editing tools for Crusader Kings III: Character Editor, Dynasty & House Editor, Faith Editor, Rite Editor, Religion Editor, Culture Editor, Title Editor.
 
 ## Stack
 
@@ -36,6 +36,9 @@ Electron-based suite of editing tools for Crusader Kings III: Character Editor, 
 - `usePersistedDraft` (`hooks/`) is the draft half of that: it replaces a detail panel's local draft state, so an edit outlives closing the row, switching tools and restarting the app until it's saved (`markSaved`) or reverted (`revert`). It reseeds from the file when the parse changes under a clean draft, and raises `stale` (shown by `StaleDraftAlert`) when the file moves under a dirty one. Base-game rows pass `editable: false` and keep no draft.
 
 ## Conventions
+
+- CK3 1.20 religion schema: `religionSchema.ts` detects the format for new content. `religions.ts` also reads standalone `faith_types` and `rite_types`; religion scalars live in `religion_details`, faith scalars in `faith_details`, and faith/rite doctrines and tenets use block lists. The older nesting rules below apply only to legacy definitions. New 1.20 faiths append a standalone block and may use a game religion as their parent. Faith and rite ids may legally match; rite clashes are checked within the rite database only. Characters keep `faith`/`religion` separate from `rite`. The new `rites` tool uses the same favorites, recents, and persisted-draft stores as the other editors. See `docs/CK3-1.20.md` for supported fields and the opt-in `CK3_GAME_DIR` integration audit.
+- Title history supports relative subfolder paths, including 1.20's `history/titles/ce3`. Its reader and file picker use recursive `effectiveFiles`; its writers validate paths with `isTxtRelativePath`. Other creators still require a plain file name.
 
 - All filesystem/CK3 access happens in the main process; the renderer is sandboxed and talks only through `window.ck3tools`. New capabilities need: handler in `src/main/index.ts` `registerIpc()`, method in preload `index.ts`, matching signature in preload `index.d.ts`.
 - Settings: `gameDir` points at the game *data* dir (`…\Crusader Kings III\game`), not the install root — `normalizeGameDir` corrects a root pick. `selectedModFile` stores the `.mod` file name (stable id), not the mod name.

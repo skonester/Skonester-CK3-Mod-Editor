@@ -12,6 +12,7 @@ import CultureEditorPage from './pages/CultureEditorPage'
 import DynastyEditorPage from './pages/DynastyEditorPage'
 import FaithEditorPage from './pages/FaithEditorPage'
 import ReligionEditorPage from './pages/ReligionEditorPage'
+import RiteEditorPage from './pages/RiteEditorPage'
 import TitleEditorPage from './pages/TitleEditorPage'
 
 /**
@@ -29,6 +30,7 @@ export interface CharacterSearch {
   birth?: string
   culture?: string
   faith?: string
+  rite?: string
   father?: string
   mother?: string
   dynasty?: string
@@ -133,6 +135,7 @@ const charactersRoute = createRoute({
       birth: str(search.birth),
       culture: str(search.culture),
       faith: str(search.faith),
+      rite: str(search.rite),
       father: str(search.father),
       mother: str(search.mother),
       dynasty: str(search.dynasty),
@@ -178,6 +181,19 @@ const religionsRoute = createRoute({
   })
 })
 
+const ritesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/rites',
+  component: RiteEditorPage,
+  validateSearch: (
+    search: Record<string, unknown>
+  ): { id?: string; create?: boolean; faith?: string } => ({
+    id: typeof search.id === 'string' ? search.id : undefined,
+    create: search.create === true || search.create === 'true' ? true : undefined,
+    faith: typeof search.faith === 'string' ? search.faith : undefined
+  })
+})
+
 const culturesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/cultures',
@@ -210,6 +226,7 @@ const routeTree = rootRoute.addChildren([
   dynastiesRoute,
   titlesRoute,
   faithsRoute,
+  ritesRoute,
   religionsRoute,
   culturesRoute
 ])

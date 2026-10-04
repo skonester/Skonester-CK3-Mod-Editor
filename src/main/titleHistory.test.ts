@@ -176,7 +176,7 @@ describe('getTitleHistory', () => {
 })
 
 describe('reader/writer symmetry', () => {
-  it('does not leak a one-line effect\'s inner statements into the entry', () => {
+  it("does not leak a one-line effect's inner statements into the entry", () => {
     const entries = history('d_edge')
     expect(entries).toHaveLength(2)
     expect(entries[0]).toMatchObject({ holder: null, opaqueBlocks: ['effect'], extra: [] })
@@ -441,9 +441,9 @@ describe('addTitleHistoryEntry', () => {
     expect(addTitleHistoryEntry(modPath, 'k_hellas.txt', 'k_hellas', emptyPatch('bad')).ok).toBe(
       false
     )
-    expect(addTitleHistoryEntry(modPath, 'sub\\dir.txt', 'k_hellas', emptyPatch('1.1.1')).ok).toBe(
-      false
-    )
+    expect(
+      addTitleHistoryEntry(modPath, 'sub\\..\\dir.txt', 'k_hellas', emptyPatch('1.1.1')).ok
+    ).toBe(false)
     expect(addTitleHistoryEntry(modPath, 'k_hellas.txt', 'bad id', emptyPatch('1.1.1')).ok).toBe(
       false
     )

@@ -93,10 +93,12 @@ export default function ReligionCreatePanel({
   const clash =
     id === ''
       ? null
-      : ([
-          ['religion', data.religions.find((r) => r.inMod && normId(r.id) === normId(id))],
-          ['faith', data.faiths.find((f) => f.inMod && normId(f.id) === normId(id))]
-        ] as const).find(([, hit]) => hit !== undefined) ?? null
+      : ((
+          [
+            ['religion', data.religions.find((r) => r.inMod && normId(r.id) === normId(id))],
+            ['faith', data.faiths.find((f) => f.inMod && normId(f.id) === normId(id))]
+          ] as const
+        ).find(([, hit]) => hit !== undefined) ?? null)
 
   // Not a clash: shadowing a base-game id is how you override one, but it's
   // worth saying out loud before it happens by accident
@@ -119,6 +121,7 @@ export default function ReligionCreatePanel({
     setError(null)
     try {
       const result: SaveResult = await window.ck3tools.createReligion(modPath, targetFile, {
+        format: data.format,
         id,
         family: draft.family,
         graphicalFaith: draft.graphicalFaith,
@@ -239,9 +242,8 @@ export default function ReligionCreatePanel({
         {textField('Piety icon group', draft.pietyIconGroup, (v) => set({ pietyIconGroup: v }), 'e.g. pagan')}
 
         <p className="text-xs text-muted-foreground">
-          The religion is created with an empty <code className="font-mono">faiths</code> list;
-          doctrines are picked in the editor once it exists, and faiths are added from the Faith
-          Editor.
+          {data.format === '1.20' ? 'Create the religion, then add standalone faiths from the Faith Editor.' : <>The religion is created with an empty <code className="font-mono">faiths</code> list. Add faiths from the Faith Editor.</>}
+          {' '}Doctrines are picked in the editor once it exists.
         </p>
 
         {error && (

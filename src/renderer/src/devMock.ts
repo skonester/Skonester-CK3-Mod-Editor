@@ -16,6 +16,7 @@ import type {
   HouseDef,
   RefEntry,
   ReligionDef,
+  RiteDef,
   TitleDetail,
   TitleFlags,
   TitleHistoryEntry,
@@ -26,6 +27,23 @@ import { TITLE_FLAG_KEYS } from '@shared/types'
 /** `{ id: name }` as reference entries; a null name means "no localization". */
 const named = (entries: Record<string, string | null>): RefEntry[] =>
   Object.entries(entries).map(([id, name]) => ({ id, name }))
+
+const rites: RiteDef[] = [
+  {
+    id: 'mock_rite',
+    file: '00_mock_rites.txt',
+    inMod: true,
+    localizedName: 'Mock Rite',
+    faith: 'orthodox',
+    color: { hex: '#808080', raw: '{ 128 128 128 }', editable: true },
+    icon: null,
+    founder: null,
+    create: null,
+    convert: null,
+    doctrines: ['doctrine_monogamy'],
+    tenets: ['tenet_communion']
+  }
+]
 
 const settings: AppSettings = {
   gameDir: 'C:\\Mock\\Crusader Kings III\\game',
@@ -640,9 +658,8 @@ const titleDetails = new Map<string, TitleDetail>(
         dejurePath: path,
         parent: t.parent,
         children,
-        color:
-          t.color === null ? null : { hex: t.color, raw: `{ ${t.color} }`, editable: true },
-        capital: t.tier === 'barony' ? null : children.find((c) => c.startsWith('c_')) ?? null,
+        color: t.color === null ? null : { hex: t.color, raw: `{ ${t.color} }`, editable: true },
+        capital: t.tier === 'barony' ? null : (children.find((c) => c.startsWith('c_')) ?? null),
         province: t.province,
         flags: noFlags(
           t.nobleFamily === 'yes'
@@ -885,6 +902,9 @@ const mock: Ck3ToolsApi = {
     return { ok: true }
   },
   getReligionData: async () => ({
+    format: '1.20',
+    rites: structuredClone(rites),
+    tenets: named({ tenet_communion: 'Communion', tenet_astrology: 'Astrology' }),
     religions: structuredClone(religions),
     faiths: structuredClone(faiths),
     groups: [
@@ -929,13 +949,15 @@ const mock: Ck3ToolsApi = {
     }),
     families: named({ rf_pagan: 'Pagan', rf_abrahamic: 'Abrahamic', rf_mock: null }),
     adherents: characters
-      .filter((c) => c.faith !== null)
-      .map((c) => ({ id: c.id, file: c.file, name: c.name, faith: c.faith as string }))
+      .filter((c) => c.faith !== null || !!c.rite)
+      .map((c) => ({ id: c.id, file: c.file, name: c.name,
+        faith: (c.rite ? rites.find((r) => r.id === c.rite)?.faith : null) ?? c.faith ?? c.rite!, rite: c.rite ?? null }))
   }),
   saveFaith: async (_modPath, file, _religionId, faithId, patch) => {
     const f = faiths.find((x) => x.file === file && x.id === faithId)
     if (!f) return { ok: false, error: `Faith ${faithId} not found in ${file}` }
     Object.assign(f, {
+      ...patch,
       icon: patch.icon,
       reformedIcon: patch.reformedIcon,
       religiousHead: patch.religiousHead,
@@ -965,7 +987,7 @@ const mock: Ck3ToolsApi = {
   },
   createFaith: async (_modPath, religionId, def) => {
     const parent = religions.find((r) => r.id.toLowerCase() === religionId.toLowerCase())
-    if (!parent?.inMod) {
+    if (!parent || (!parent.inMod && def.format !== '1.20')) {
       return { ok: false, error: `Religion ${religionId} isn't defined in the mod` }
     }
     const clash = [...religions, ...faiths]
@@ -974,11 +996,33 @@ const mock: Ck3ToolsApi = {
     if (clash) return { ok: false, error: `ID ${def.id} already exists in ${clash.file}` }
     faiths.push({
       ...def,
-      file: parent.file,
+      file: def.format === '1.20' ? (def.file ?? `${def.id}.txt`) : parent.file,
       inMod: true,
       religion: parent.id,
       color: def.color === null ? null : { hex: def.color, raw: def.color, editable: true },
       localizedName: null
+    })
+    return { ok: true }
+  },
+  listRiteFiles: async () => [...new Set(rites.filter((r) => r.inMod).map((r) => r.file))],
+  createRite: async (_modPath, file, def) => {
+    if (rites.some((r) => r.inMod && r.id.toLowerCase() === def.id.toLowerCase()))
+      return { ok: false, error: 'Rite already exists' }
+    rites.push({
+      ...def,
+      file,
+      inMod: true,
+      localizedName: null,
+      color: def.color ? { hex: def.color, raw: def.color, editable: true } : null
+    })
+    return { ok: true }
+  },
+  saveRite: async (_modPath, file, id, patch) => {
+    const rite = rites.find((r) => r.file === file && r.id === id)
+    if (!rite) return { ok: false, error: 'Rite not found' }
+    Object.assign(rite, {
+      ...patch,
+      color: patch.color && rite.color ? { ...rite.color, hex: patch.color } : rite.color
     })
     return { ok: true }
   },
@@ -1164,6 +1208,7 @@ const mock: Ck3ToolsApi = {
   getReferenceData: async () => ({
     cultures: named({ greek: 'Greek', norse: 'Norse', saxon: null }),
     faiths: named({ orthodox: 'Orthodoxy', catholic: 'Catholicism', asatru: null }),
+    rites: rites.map((r) => ({ id: r.id, name: r.localizedName })),
     traits: named({ brave: 'Brave', ambitious: 'Ambitious', craven: 'Craven', shy: null }),
     dynasties: named({ dynn_Mock: 'Mockidae', dynn_Other: null }),
     houses: named({ house_Mockington: 'Mockington', house_Other: null }),

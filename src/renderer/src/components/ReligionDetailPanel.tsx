@@ -269,7 +269,7 @@ export default function ReligionDetailPanel({
           title={<>Faiths · {faiths.length}</>}
           legendClassName="flex-nowrap"
           action={
-            editable && (
+            (editable || data.format === '1.20') && (
               <Button
                 variant="outline"
                 size="xs"

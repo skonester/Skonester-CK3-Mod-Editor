@@ -266,8 +266,8 @@ describe('getReligionData', () => {
   it('collects adherents from the mod history, under either key spelling', () => {
     const adherents = load().adherents
     expect(adherents).toEqual([
-      { id: '1', file: 'mock.txt', name: 'Alexios', faith: 'olympian' },
-      { id: '2', file: 'mock.txt', name: null, faith: 'delian' }
+      { id: '1', file: 'mock.txt', name: 'Alexios', faith: 'olympian', rite: null },
+      { id: '2', file: 'mock.txt', name: null, faith: 'delian', rite: null }
     ])
   })
 })

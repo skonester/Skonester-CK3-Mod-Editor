@@ -1,11 +1,11 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { basename, join } from 'path'
+import { join, relative } from 'path'
 import { DATE_KEY } from './characters'
 import { endOfBodyIndex, makeEditor, setBlockBody, setScalar, splitComment, withEol } from './lineEditor'
 import { annotateLines, scanBlocks, scanScalarsCI, topLevelCode } from './pdx'
 import { effectiveFiles, isUnderDir } from './refdata'
 import { norm } from './religions'
-import { KEY_CHARS, appendBlock, isTxtFileName, listTxtFiles } from './scriptFile'
+import { KEY_CHARS, appendBlock, isTxtRelativePath } from './scriptFile'
 import type { BlockSpan } from './pdx'
 import type {
   SaveResult,
@@ -149,15 +149,18 @@ export function getTitleHistory(
   titleId: string
 ): TitleHistoryEntry[] {
   const entries: TitleHistoryEntry[] = []
-  for (const path of effectiveFiles(gameDir, modPath, replacePaths, HISTORY_DIR)) {
+  for (const path of effectiveFiles(gameDir, modPath, replacePaths, HISTORY_DIR, true)) {
     let text: string
     try {
       text = readFileSync(path, 'utf-8')
     } catch {
       continue
     }
-    const file = basename(path)
     const inMod = isUnderDir(path, modPath)
+    const file = relative(
+      join((inMod ? modPath : gameDir)!, ...HISTORY_DIR.split('/')),
+      path
+    ).replace(/\\/g, '/')
     let titleBlock = 0
     for (const block of scanBlocks(text)) {
       if (norm(block.key) !== norm(titleId)) continue
@@ -178,7 +181,9 @@ export function getTitleHistory(
 
 /** .txt files under the mod's history/titles folder. */
 export function listTitleHistoryFiles(modPath: string): string[] {
-  return listTxtFiles(historyDir(modPath))
+  return effectiveFiles(null, modPath, [], HISTORY_DIR, true)
+    .map((path) => relative(historyDir(modPath), path).replace(/\\/g, '/'))
+    .sort()
 }
 
 // ---------- Editing ----------
@@ -200,6 +205,7 @@ function findEntry(
   titleBlock: number,
   index: number
 ): EntryLocation | { error: string } {
+  if (!isTxtRelativePath(file)) return { error: 'Invalid history file path' }
   const path = join(historyDir(modPath), file)
   if (!existsSync(path)) return { error: `File not found: ${file}` }
   const text = readFileSync(path, 'utf-8')
@@ -317,7 +323,7 @@ export function addTitleHistoryEntry(
     if (!KEY_CHARS.test(id)) {
       return { ok: false, error: `Invalid title id "${id}" (letters, digits, _ . - ' only)` }
     }
-    if (!isTxtFileName(file)) {
+    if (!isTxtRelativePath(file)) {
       return { ok: false, error: `Invalid file name "${file}" (expected a .txt file name)` }
     }
     const date = patch.date.trim()

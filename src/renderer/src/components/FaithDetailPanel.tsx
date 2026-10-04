@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, ExternalLink } from 'lucide-react'
-import type { RefEntry, RefLocation, ReligionData, SaveResult } from '@shared/types'
+import type { FaithPatch, RefEntry, RefLocation, ReligionData, SaveResult } from '@shared/types'
 import { SAVE_HOTKEY_LABEL, useFormHotkeys } from '../hooks/useFormHotkeys'
 import { usePersistedDraft } from '../hooks/usePersistedDraft'
 import { useFaithIcons } from '../useGameIcons'
 import type { IconContext } from '../useGameIcons'
 import DoctrineEditor from './DoctrineEditor'
+import TenetEditor from './TenetEditor'
 import ReferenceBadge from './ReferenceBadge'
 import ReferenceDisplay from './ReferenceDisplay'
 import ReferenceInput, { openReferenceTarget } from './ReferenceInput'
@@ -26,7 +27,7 @@ import { adherentsOfFaith, normId } from '@/lib/faithView'
 const HOLY_SITE_LIMIT = 5
 
 /** The editable fields of a faith. */
-interface FaithDraft {
+interface FaithDraft extends FaithPatch {
   color: string | null
   icon: string | null
   reformedIcon: string | null
@@ -45,6 +46,8 @@ interface Props {
   iconNames: string[]
   /** Jump to the Religion Editor */
   onOpenReligion: (id: string) => void
+  onOpenRite: (id: string) => void
+  onAddRite: (faith: string) => void
   /** Jump to the character editor */
   onOpenCharacter: (id: string, file: string) => void
   /** Called after a successful save so the page can reload definitions */
@@ -61,6 +64,8 @@ export default function FaithDetailPanel({
   replacePaths,
   iconNames,
   onOpenReligion,
+  onOpenRite,
+  onAddRite,
   onOpenCharacter,
   onSaved,
   onClose
@@ -74,7 +79,12 @@ export default function FaithDetailPanel({
         reformedIcon: faith.reformedIcon,
         religiousHead: faith.religiousHead,
         holySites: faith.holySites,
-        doctrines: faith.doctrines
+        doctrines: faith.doctrines,
+        ...(faith.format === '1.20' ? {
+          mainRite: faith.mainRite ?? null,
+          tenets: faith.tenets ?? [],
+          eminentHolySites: faith.eminentHolySites ?? []
+        } : {})
       }
     : null
 
@@ -149,7 +159,11 @@ export default function FaithDetailPanel({
           reformedIcon: draft.reformedIcon,
           religiousHead: draft.religiousHead,
           doctrines: draft.doctrines,
-          holySites: draft.holySites
+          holySites: draft.holySites,
+          format: faith.format,
+          mainRite: draft.mainRite,
+          tenets: draft.tenets,
+          eminentHolySites: draft.eminentHolySites
         }
       )
       if (!result.ok) {
@@ -240,13 +254,21 @@ export default function FaithDetailPanel({
     )
   }
 
-  const holySitesField = (): React.JSX.Element => {
-    const sites = draft?.holySites ?? []
+  const holySitesField = (eminent = false): React.JSX.Element => {
+    const sites = (eminent ? draft?.eminentHolySites : draft?.holySites) ?? []
+    const otherSites = (eminent ? draft?.holySites : draft?.eminentHolySites) ?? []
+    const change = (values: string[]): void =>
+      set(eminent ? { eminentHolySites: values } : { holySites: values })
     return (
       <FormSection
-        title={<>Holy sites · {sites.length}</>}
+        title={
+          <>
+            {eminent ? 'Eminent holy sites' : 'Holy sites'} · {sites.length}
+          </>
+        }
         legendClassName="flex-nowrap"
         action={
+          faith?.format !== '1.20' &&
           sites.length > HOLY_SITE_LIMIT && (
             <Badge variant="outline" className="text-[10px] font-normal">
               over the game&apos;s limit of {HOLY_SITE_LIMIT}
@@ -262,18 +284,20 @@ export default function FaithDetailPanel({
               locate={() =>
                 window.ck3tools.locateRef(gameDir, modPath, replacePaths, 'holy_site', site)
               }
-              onRemove={
-                editable ? () => set({ holySites: sites.filter((s) => s !== site) }) : undefined
-              }
+              onRemove={editable ? () => change(sites.filter((s) => s !== site)) : undefined}
             />
           ))}
           {sites.length === 0 && <span className="text-sm text-muted-foreground">none</span>}
         </div>
         {editable && (
           <ReferenceInput
-            options={data.holySites.filter((h) => !sites.includes(h.id))}
+            options={data.holySites.filter(
+              (h) => ![...sites, ...otherSites].some((s) => normId(s) === normId(h.id))
+            )}
             placeholder="Add holy site…"
-            onAdd={(v) => set({ holySites: [...sites, v] })}
+            onAdd={(v) => {
+              if (!otherSites.some((s) => normId(s) === normId(v))) change([...sites, v])
+            }}
             limit={60}
           />
         )}
@@ -376,23 +400,69 @@ export default function FaithDetailPanel({
             </div>
             <div className="space-y-1.5">
               {fieldLabel('Religion')}
-              {/* Read-only: a faith lives inside its religion's block, so
-                  changing this would mean moving the block, not a scalar */}
+              {/* Parent changes remain a text-file operation. */}
               <ReferenceDisplay
                 value={faith.religion}
                 name={parentReligion?.localizedName ?? null}
                 onNavigate={onOpenReligion}
               />
             </div>
+            {faith.format === '1.20' && (
+              <div className="space-y-1.5">
+                {fieldLabel('Main rite')}
+                <ReferenceInput
+                  value={draft.mainRite ?? null}
+                  onChange={(mainRite) => set({ mainRite })}
+                  options={(data.rites ?? []).map((r) => ({ id: r.id, name: r.localizedName }))}
+                  placeholder="dynamic rite"
+                  disabled={!editable}
+                  onNavigate={onOpenRite}
+                  followTitle="Open in Rite Editor"
+                />
+                <p className="text-xs text-muted-foreground">
+                  The main rite supplies core tenets. Dated changes are defined in history/faiths.
+                </p>
+              </div>
+            )}
           </FormSection>
         )}
 
         {draft && faith && holySitesField()}
+        {draft && faith?.format === '1.20' && holySitesField(true)}
+
+        {draft && faith?.format === '1.20' && (
+          <FormSection title="Tenets">
+            <p className="text-xs text-muted-foreground">
+              These seed a dynamic main rite. A scripted main rite supplies its own tenets;
+              conditional tenet selections remain in the file.
+            </p>
+            <TenetEditor
+              values={draft.tenets ?? []}
+              options={data.tenets ?? []}
+              disabled={!editable}
+              onChange={(tenets) => set({ tenets })}
+              gameDir={gameDir}
+              modPath={modPath}
+              replacePaths={replacePaths}
+            />
+          </FormSection>
+        )}
 
         {draft && faith && (
-          <FormSection title="Doctrines & tenets">
+          <FormSection title={faith.format === '1.20' ? 'Doctrines' : 'Doctrines & tenets'}>
+            {faith.format === '1.20' && (
+              <p className="text-xs text-muted-foreground">
+                Faith doctrines fill groups not already supplied by the religion or main rite. Edit
+                rite-specific choices in the Rite Editor.
+              </p>
+            )}
             <DoctrineEditor
               groups={data.groups}
+              inheritanceDescription={
+                faith.format === '1.20'
+                  ? 'These are the faith’s own additive doctrines; religion and rite choices may take precedence.'
+                  : undefined
+              }
               doctrines={draft.doctrines}
               inheritedFrom={
                 parentReligion !== null
@@ -407,6 +477,34 @@ export default function FaithDetailPanel({
               onChange={(doctrines) => set({ doctrines })}
               locate={locateDoctrine}
             />
+          </FormSection>
+        )}
+
+        {faith?.format === '1.20' && (
+          <FormSection
+            title="Rites"
+            action={
+              <Button variant="outline" size="sm" onClick={() => onAddRite(faith.id)}>
+                Add rite
+              </Button>
+            }
+          >
+            {(data.rites ?? [])
+              .filter((r) => r.faith && normId(r.faith) === normId(faith.id))
+              .map((r) => (
+                <ReferenceDisplay
+                  key={r.id}
+                  value={r.id}
+                  name={r.localizedName}
+                  onNavigate={onOpenRite}
+                />
+              ))}
+            {!(data.rites ?? []).some((r) => r.faith && normId(r.faith) === normId(faith.id)) && (
+              <p className="text-sm text-muted-foreground">
+                No scripted rites. CK3 creates a same-id dynamic rite from this faith when it has no
+                scripted rites.
+              </p>
+            )}
           </FormSection>
         )}
 

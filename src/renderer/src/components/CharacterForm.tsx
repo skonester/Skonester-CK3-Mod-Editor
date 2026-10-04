@@ -93,7 +93,13 @@ export function FieldLabel({
 }
 
 /** Dropdown row for the trait picker; fetches its own icon (module-level cached) */
-function TraitOption({ trait, iconCtx }: { trait: RefEntry; iconCtx: IconContext }): React.JSX.Element {
+function TraitOption({
+  trait,
+  iconCtx
+}: {
+  trait: RefEntry
+  iconCtx: IconContext
+}): React.JSX.Element {
   const icon = useTraitIcons(iconCtx, [trait.id])(trait.id)
   return (
     <span className="flex min-w-0 items-center gap-2.5">
@@ -133,9 +139,7 @@ export function spousesInvalid(spouses: CharacterSpouse[] | undefined): boolean 
  * character, or a date that isn't a real Y.M.D.
  */
 export function relationRowInvalid(relation: CharacterRelation): boolean {
-  return (
-    !relation.type.trim() || !relation.target.trim() || !isValidCK3Date(relation.date)
-  )
+  return !relation.type.trim() || !relation.target.trim() || !isValidCK3Date(relation.date)
 }
 
 /** True when any relationship row would be rejected by a save. */
@@ -164,6 +168,7 @@ interface Props {
   onOpenCulture: (id: string) => void
   /** Open a faith in the Faith Editor */
   onOpenFaith: (id: string) => void
+  onOpenRite: (id: string) => void
   badBirth: boolean
   badDeath: boolean
   /** Mark the game-mandatory fields with an asterisk (create mode) */
@@ -198,6 +203,7 @@ export default function CharacterForm({
   onOpenLineage,
   onOpenCulture,
   onOpenFaith,
+  onOpenRite,
   badBirth,
   badDeath,
   markRequired = false,
@@ -357,14 +363,23 @@ export default function CharacterForm({
    * editor that owns them rather than opening the definition file.
    */
   const managedField = (
-    label: 'Culture' | 'Faith',
+    label: 'Culture' | 'Faith' | 'Rite',
     value: string | null,
     onChange: (v: string | null) => void,
     options: RefEntry[],
     onNavigate: (id: string) => void
   ): React.JSX.Element => (
     <div className="space-y-1.5">
-      <FieldLabel required={markRequired}>{label}</FieldLabel>
+      <FieldLabel
+        required={
+          markRequired &&
+          (label === 'Culture' ||
+            (label === 'Faith' && !draft.rite) ||
+            (label === 'Rite' && !draft.faith))
+        }
+      >
+        {label}
+      </FieldLabel>
       <ReferenceInput
         value={value}
         onChange={onChange}
@@ -705,6 +720,19 @@ export default function CharacterForm({
           refData?.faiths ?? [],
           onOpenFaith
         )}
+        {((refData?.rites?.length ?? 0) > 0 || draft.rite) &&
+          managedField(
+            'Rite',
+            draft.rite ?? null,
+            (v) => set({ rite: v }),
+            refData?.rites ?? [],
+            onOpenRite
+          )}
+        {(refData?.rites?.length ?? 0) > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Set a rite for CK3 1.20. A faith alone selects its main rite.
+          </p>
+        )}
         <div className="space-y-1.5">
           <FieldLabel>Traits</FieldLabel>
           <div className="flex min-h-6 flex-wrap gap-1.5">
@@ -717,7 +745,9 @@ export default function CharacterForm({
                 onRemove={() => set({ traits: draft.traits.filter((x) => x !== t) })}
               />
             ))}
-            {draft.traits.length === 0 && <span className="text-sm text-muted-foreground">none</span>}
+            {draft.traits.length === 0 && (
+              <span className="text-sm text-muted-foreground">none</span>
+            )}
           </div>
           <ReferenceInput
             options={(refData?.traits ?? []).filter((t) => !draft.traits.includes(t.id))}

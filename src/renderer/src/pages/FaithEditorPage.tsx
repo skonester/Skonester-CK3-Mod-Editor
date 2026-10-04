@@ -401,8 +401,10 @@ export default function FaithEditorPage(): React.JSX.Element {
           <CardContent className="flex items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
               No faiths found for {selectedMod.name} in{' '}
-              <code className="font-mono">common/religion/religion_types</code>, and no character
-              professes one.
+              <code className="font-mono">
+                common/religion/{data?.format === '1.20' ? 'faith_types' : 'religion_types'}
+              </code>
+              , and no character professes one.
             </p>
             <Button size="sm" className="shrink-0" onClick={() => openCreate()}>
               <Plus />
@@ -563,6 +565,10 @@ export default function FaithEditorPage(): React.JSX.Element {
                   replacePaths={replacePaths}
                   iconNames={iconNames}
                   onOpenReligion={openReligion}
+                  onOpenRite={(id) => void navigate({ to: '/rites', search: { id } })}
+                  onAddRite={(faith) =>
+                    void navigate({ to: '/rites', search: { create: true, faith } })
+                  }
                   onOpenCharacter={openCharacter}
                   onSaved={() => void reload()}
                   onClose={closeRow}
