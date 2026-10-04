@@ -33,6 +33,7 @@ export type ToolKey =
   | 'dynasties'
   | 'cultures'
   | 'faiths'
+  | 'faithHistory'
   | 'rites'
   | 'religions'
   | 'titles'
@@ -499,6 +500,7 @@ export interface FaithColor {
  * A standalone CK3 1.20 faith or a legacy faith nested in a religion's faiths block.
  */
 export interface FaithDef {
+  options?: FaithOptions
   id: string
   /** File name within faith_types (1.20) or religion_types (legacy) */
   file: string
@@ -530,6 +532,7 @@ export interface FaithDef {
 
 /** A religion definition: a top-level block in common/religion/religion_types. */
 export interface ReligionDef {
+  options?: ReligionOptions
   id: string
   file: string
   inMod: boolean
@@ -575,6 +578,10 @@ export type ReligionFormat = 'legacy' | '1.20'
 
 /** A scripted rite from common/religion/rite_types. */
 export interface RiteDef {
+  options?: RiteOptions
+  /** Dynamic name/description blocks remain script rather than localization keys. */
+  dynamicName?: boolean
+  dynamicDescription?: boolean
   id: string
   file: string
   inMod: boolean
@@ -590,6 +597,7 @@ export interface RiteDef {
 }
 
 export interface RitePatch {
+  options?: RiteOptions
   faith: string | null
   color: string | null
   icon: string | null
@@ -621,6 +629,7 @@ export interface ReligionData {
 
 /** Editable faith fields; null clears the line, [] clears every repeat */
 export interface FaithPatch {
+  options?: FaithOptions
   format?: ReligionFormat
   mainRite?: string | null
   tenets?: string[]
@@ -636,10 +645,86 @@ export interface FaithPatch {
 
 /** Editable religion fields; null clears the line */
 export interface ReligionPatch {
+  options?: ReligionOptions
   family: string | null
   graphicalFaith: string | null
   pietyIconGroup: string | null
   doctrines: string[]
+}
+
+/** Optional fields let older drafts/API clients leave newly supported settings untouched. */
+export interface FaithOptions {
+  headOfRite?: string | null
+  graphicalFaith?: string | null
+  theocracyGovernmentType?: string | null
+  origin?: string | null
+  historical?: string | null
+  cultures?: string[]
+  reservedMaleNames?: string[]
+  reservedFemaleNames?: string[]
+}
+
+export interface ReligionOptions {
+  tenetBackgroundIcon?: string | null
+  theocracyGovernmentType?: string | null
+  mainHolySite?: string | null
+  paganRoots?: string | null
+  eminentHolySitesMin?: string | null
+  eminentHolySitesMax?: string | null
+  holySitesMin?: string | null
+  holySitesMax?: string | null
+  reservedMaleNames?: string[]
+  reservedFemaleNames?: string[]
+  customFaithIcons?: string[]
+  /** Exact inner script, supporting bare traits, multipliers and scale/weight blocks. */
+  traitsScript?: string | null
+}
+
+export interface RiteOptions {
+  nameKey?: string | null
+  descriptionKey?: string | null
+  cultures?: string[]
+}
+
+export interface FaithHistoryFields {
+  created: string | null
+  mainRite: string | null
+  religiousHead: string | null
+  known: string[]
+  permitted: string[]
+  prohibited: string[]
+}
+
+export interface FaithHistoryEntry extends FaithHistoryFields {
+  file: string
+  inMod: boolean
+  faithBlock: number
+  index: number
+  date: string
+  /** Exact dated block body, including comments and unknown scripted settings. */
+  script: string
+  /** Includes both the modern rites = { id = {} } and repeated rite = {} syntax. */
+  rites: string[]
+}
+
+export interface FaithHistoryPatch {
+  date: string
+  script: string
+}
+
+export interface FaithHistoryPreview {
+  script: string
+  fields: FaithHistoryFields
+  error: string | null
+}
+
+/** Address plus expected bytes prevents a changed file from redirecting an edit. */
+export interface FaithHistoryTarget {
+  file: string
+  faithBlock: number
+  index: number
+  date: string
+  script: string
 }
 
 /**

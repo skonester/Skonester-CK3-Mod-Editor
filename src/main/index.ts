@@ -3,13 +3,7 @@ import { join } from 'path'
 import { readFileSync, unwatchFile, watchFile } from 'fs'
 import icon from '../../resources/icon.png?asset'
 import { loadSettings, saveSettings } from './settings'
-import {
-  detectPaths,
-  listMods,
-  normalizeGameDir,
-  validateGameDir,
-  validateModDir
-} from './ck3'
+import { detectPaths, listMods, normalizeGameDir, validateGameDir, validateModDir } from './ck3'
 import {
   createCharacter,
   getCharacter,
@@ -39,6 +33,14 @@ import {
   saveRite
 } from './religions'
 import { getFaithIcons, listFaithIcons } from './faithIcons'
+import {
+  addFaithHistoryEntry,
+  deleteFaithHistoryEntry,
+  getFaithHistory,
+  listFaithHistoryFiles,
+  prepareFaithHistoryScript,
+  saveFaithHistoryEntry
+} from './faithHistory'
 import { createTitle, getTitle, getTitleData, listTitleFiles, saveTitle } from './titles'
 import {
   addTitleHistoryEntry,
@@ -60,6 +62,9 @@ import type {
   CulturePatch,
   DynastyPatch,
   FaithPatch,
+  FaithHistoryFields,
+  FaithHistoryPatch,
+  FaithHistoryTarget,
   HousePatch,
   NewCulture,
   NewDynasty,
@@ -134,6 +139,34 @@ function createWindow(): void {
 }
 
 function registerIpc(): void {
+  ipcMain.handle(
+    'ck3:getFaithHistory',
+    (_e, gameDir: string | null, modPath: string | null, replacePaths: string[], faithId: string) =>
+      getFaithHistory(gameDir, modPath, replacePaths, faithId)
+  )
+  ipcMain.handle('ck3:listFaithHistoryFiles', (_e, modPath: string) =>
+    listFaithHistoryFiles(modPath)
+  )
+  ipcMain.handle(
+    'ck3:prepareFaithHistoryScript',
+    (_e, script: string, patch?: Partial<FaithHistoryFields>) =>
+      prepareFaithHistoryScript(script, patch)
+  )
+  ipcMain.handle(
+    'ck3:saveFaithHistoryEntry',
+    (_e, modPath: string, faithId: string, target: FaithHistoryTarget, patch: FaithHistoryPatch) =>
+      saveFaithHistoryEntry(modPath, faithId, target, patch)
+  )
+  ipcMain.handle(
+    'ck3:addFaithHistoryEntry',
+    (_e, modPath: string, file: string, faithId: string, patch: FaithHistoryPatch) =>
+      addFaithHistoryEntry(modPath, file, faithId, patch)
+  )
+  ipcMain.handle(
+    'ck3:deleteFaithHistoryEntry',
+    (_e, modPath: string, faithId: string, target: FaithHistoryTarget) =>
+      deleteFaithHistoryEntry(modPath, faithId, target)
+  )
   ipcMain.handle('settings:get', () => loadSettings())
   ipcMain.handle('settings:set', (_e, patch: Partial<AppSettings>) => saveSettings(patch))
 
@@ -169,7 +202,8 @@ function registerIpc(): void {
       paste: string,
       dnaFile: string,
       modifierFile: string | null
-    ) => applyRulerDesignerDna(gameDir, modPath, replacePaths, file, id, paste, dnaFile, modifierFile)
+    ) =>
+      applyRulerDesignerDna(gameDir, modPath, replacePaths, file, id, paste, dnaFile, modifierFile)
   )
   ipcMain.handle(
     'ck3:getDynastyData',
@@ -301,14 +335,18 @@ function registerIpc(): void {
     ) => saveCulture(gameDir, modPath, replacePaths, file, id, patch)
   )
   ipcMain.handle('ck3:listCultureFiles', (_e, modPath: string) => listCultureFiles(modPath))
-  ipcMain.handle(
-    'ck3:createCulture',
-    (_e, modPath: string, file: string, def: NewCulture) => createCulture(modPath, file, def)
+  ipcMain.handle('ck3:createCulture', (_e, modPath: string, file: string, def: NewCulture) =>
+    createCulture(modPath, file, def)
   )
   ipcMain.handle(
     'ck3:getTraitIcons',
-    (_e, gameDir: string | null, modPath: string | null, replacePaths: string[], traits: string[]) =>
-      getTraitIcons(gameDir, modPath, replacePaths, traits)
+    (
+      _e,
+      gameDir: string | null,
+      modPath: string | null,
+      replacePaths: string[],
+      traits: string[]
+    ) => getTraitIcons(gameDir, modPath, replacePaths, traits)
   )
   ipcMain.handle(
     'ck3:getFlatIcons',
@@ -317,8 +355,13 @@ function registerIpc(): void {
   )
   ipcMain.handle(
     'ck3:getSkillIcons',
-    (_e, gameDir: string | null, modPath: string | null, replacePaths: string[], skills: string[]) =>
-      getSkillIcons(gameDir, modPath, replacePaths, skills)
+    (
+      _e,
+      gameDir: string | null,
+      modPath: string | null,
+      replacePaths: string[],
+      skills: string[]
+    ) => getSkillIcons(gameDir, modPath, replacePaths, skills)
   )
   ipcMain.handle(
     'ck3:getCoatsOfArms',
@@ -332,8 +375,14 @@ function registerIpc(): void {
   )
   ipcMain.handle(
     'ck3:locateRef',
-    (_e, gameDir: string | null, modPath: string | null, replacePaths: string[], kind: RefKind, id: string) =>
-      locateRef(gameDir, modPath, replacePaths, kind, id)
+    (
+      _e,
+      gameDir: string | null,
+      modPath: string | null,
+      replacePaths: string[],
+      kind: RefKind,
+      id: string
+    ) => locateRef(gameDir, modPath, replacePaths, kind, id)
   )
   ipcMain.handle(
     'ck3:getModFonts',

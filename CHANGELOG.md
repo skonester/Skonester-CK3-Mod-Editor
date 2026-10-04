@@ -2,12 +2,14 @@
 
 ## Unreleased — CK3 1.20 support
 
+- Add dated faith-history editing with complete-script access to rite/DLC setups and popularity, persistent drafts, and stale-file protection.
+- Expand faith, rite, and religion settings with culture associations, reserved names, rite heads, origins, government overrides, holy-site limits, and weighted virtues/sins.
 - Read and edit standalone faiths and nested religion details while preserving legacy definitions.
 - Add a Rite Editor with parent faith links, core tenets, doctrines, founder titles, and persistent drafts.
 - Add independent character rite fields, main-rite selectors, and eminent holy sites.
 - Resolve doctrine membership from 1.20 declarations and keep tenets in their own database.
 - Read top-level succession laws and nested ecclesiastical title history.
-- Verify every religion, faith, and rite in the supplied 1.20.0.3 data round-trips byte-for-byte on a no-op save.
+- Verify every religion, faith, rite, and faith-history entry in the supplied 1.20.0.3 data round-trips byte-for-byte on a no-op save.
 
 ## v0.1.0 — first release
 

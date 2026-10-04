@@ -12,6 +12,11 @@ import type {
   DynastyPatch,
   EditorInfo,
   FaithPatch,
+  FaithHistoryEntry,
+  FaithHistoryFields,
+  FaithHistoryPatch,
+  FaithHistoryPreview,
+  FaithHistoryTarget,
   HousePatch,
   ModFonts,
   ModInfo,
@@ -37,6 +42,34 @@ import type {
 } from '@shared/types'
 
 export interface Ck3ToolsApi {
+  getFaithHistory: (
+    gameDir: string | null,
+    modPath: string | null,
+    replacePaths: string[],
+    faithId: string
+  ) => Promise<FaithHistoryEntry[]>
+  listFaithHistoryFiles: (modPath: string) => Promise<string[]>
+  prepareFaithHistoryScript: (
+    script: string,
+    patch?: Partial<FaithHistoryFields>
+  ) => Promise<FaithHistoryPreview>
+  saveFaithHistoryEntry: (
+    modPath: string,
+    faithId: string,
+    target: FaithHistoryTarget,
+    patch: FaithHistoryPatch
+  ) => Promise<SaveResult>
+  addFaithHistoryEntry: (
+    modPath: string,
+    file: string,
+    faithId: string,
+    patch: FaithHistoryPatch
+  ) => Promise<SaveResult>
+  deleteFaithHistoryEntry: (
+    modPath: string,
+    faithId: string,
+    target: FaithHistoryTarget
+  ) => Promise<SaveResult>
   getSettings: () => Promise<AppSettings>
   setSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
   detectPaths: () => Promise<DetectionResult>
@@ -136,12 +169,7 @@ export interface Ck3ToolsApi {
     replacePaths: string[],
     id: string
   ) => Promise<TitleDetail | null>
-  saveTitle: (
-    modPath: string,
-    file: string,
-    id: string,
-    patch: TitlePatch
-  ) => Promise<SaveResult>
+  saveTitle: (modPath: string, file: string, id: string, patch: TitlePatch) => Promise<SaveResult>
   /** The mod's own .txt files under common/landed_titles */
   listTitleFiles: (modPath: string) => Promise<string[]>
   /**

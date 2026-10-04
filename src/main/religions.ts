@@ -2,6 +2,14 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { basename, join } from 'path'
 import { makeEditor, setBlockList, setRepeatedScalar, setScalar } from './lineEditor'
 import { KEY_CHARS, appendBlock, isTxtFileName } from './scriptFile'
+import {
+  applyFaithOptions,
+  applyReligionOptions,
+  applyRiteOptions,
+  readFaithOptions,
+  readReligionOptions,
+  readRiteOptions
+} from './religionOptions'
 import { readLocalization } from './localization'
 import { annotateLines, scanBlocks, scanRepeatedScalarCI, scanScalarsCI } from './pdx'
 import { effectiveFiles, isUnderDir } from './refdata'
@@ -52,7 +60,10 @@ const toHex = (r: number, g: number, b: number): string =>
  * The three numbers of a `{ a b c }` body, or null when it isn't three numbers.
  */
 function triple(body: string): number[] | null {
-  const parts = body.replace(/#[^\n]*/g, ' ').trim().split(/\s+/)
+  const parts = body
+    .replace(/#[^\n]*/g, ' ')
+    .trim()
+    .split(/\s+/)
   if (parts.length !== 3) return null
   const nums = parts.map(Number)
   return nums.some((n) => Number.isNaN(n)) ? null : nums
@@ -150,7 +161,8 @@ export function parseColor(body: string, named: Map<string, string>): FaithColor
     const nums = triple(hsv[2])
     const scale = hsv[1].toLowerCase() === 'hsv360' ? [360, 100, 100] : [1, 1, 1]
     return {
-      hex: nums === null ? null : hsvHex(nums[0] / scale[0], nums[1] / scale[1], nums[2] / scale[2]),
+      hex:
+        nums === null ? null : hsvHex(nums[0] / scale[0], nums[1] / scale[1], nums[2] / scale[2]),
       raw: statement,
       editable: false
     }
@@ -195,7 +207,10 @@ export function expandLocRefs(
       ? new Map<string, string>()
       : readLocalization(gameDir, modPath, null, (key) => missing.has(key))
   for (const [key, value] of loc) {
-    const expanded = value.replace(LOC_REF, (whole, ref: string) => loc.get(ref) ?? extra.get(ref) ?? whole)
+    const expanded = value.replace(
+      LOC_REF,
+      (whole, ref: string) => loc.get(ref) ?? extra.get(ref) ?? whole
+    )
     if (expanded !== value) loc.set(key, expanded)
   }
 }
@@ -210,9 +225,7 @@ const holySiteLocKey = (id: string): string => `holy_site_${id}_name`
  * a file of its own.)
  */
 export function modFirst(files: string[], modPath: string | null): string[] {
-  return [...files].sort(
-    (a, b) => Number(isUnderDir(b, modPath)) - Number(isUnderDir(a, modPath))
-  )
+  return [...files].sort((a, b) => Number(isUnderDir(b, modPath)) - Number(isUnderDir(a, modPath)))
 }
 
 function topLevelKeys(
@@ -331,6 +344,7 @@ function parseReligion(body: string, id: string, file: string, inMod: boolean): 
   const details = nestedBody(body, 'religion_details')
   const scalars = scanScalarsCI(details ?? body)
   return {
+    options: readReligionOptions(body),
     id,
     file,
     inMod,
@@ -355,6 +369,7 @@ function parseFaith(
   const scalars = scanScalarsCI(details ?? body)
   const modern = details !== null
   return {
+    options: readFaithOptions(body),
     id,
     file,
     inMod,
@@ -500,6 +515,9 @@ export function getReligionData(
       const scalars = scanScalarsCI(body)
       riteNames.set(block.key, scalars.get('name') ?? block.key)
       rites.push({
+        options: readRiteOptions(body),
+        dynamicName: nestedBody(body, 'name') !== null,
+        dynamicDescription: nestedBody(body, 'desc') !== null,
         id: block.key,
         file: basename(path),
         inMod: isUnderDir(path, modPath),
@@ -592,7 +610,7 @@ function saveModernFaithBody(body: string, patch: FaithPatch): string {
   setListIfChanged(outer, 'eminent_holy_sites', patch.eminentHolySites)
   setListIfChanged(outer, 'doctrines', patch.doctrines)
   setListIfChanged(outer, 'tenets', patch.tenets)
-  return outer.lines.join('\n')
+  return applyFaithOptions(outer.lines.join('\n'), patch.options)
 }
 
 /** Rewrite a block's body in place, leaving the rest of the file byte-identical. */
@@ -681,7 +699,7 @@ export function saveFaith(
     const end = religion.bodyStart + list.bodyStart + faith.bodyEnd
     const updated =
       text.slice(0, start) +
-      saveFaithBody(body, patch, parseColor(body, new Map())) +
+      applyFaithOptions(saveFaithBody(body, patch, parseColor(body, new Map())), patch.options) +
       text.slice(end)
     writeFileSync(path, updated, 'utf-8')
     return { ok: true }
@@ -712,7 +730,11 @@ export function saveReligion(
     setScalar(ed, ['piety_icon_group'], patch.pietyIconGroup, { quoteNew: true, ignoreCase: true })
     const outer = details ? makeEditor(spliceBody(body, details, ed.lines.join('\n'))) : ed
     setRepeatedScalar(outer, 'doctrine', patch.doctrines, { ignoreCase: true })
-    writeFileSync(path, spliceBody(text, religion, outer.lines.join('\n')), 'utf-8')
+    writeFileSync(
+      path,
+      spliceBody(text, religion, applyReligionOptions(outer.lines.join('\n'), patch.options)),
+      'utf-8'
+    )
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -809,7 +831,13 @@ function newFaithLines(def: NewFaith): string[] {
   scalar('religious_head', def.religiousHead)
   for (const site of def.holySites) lines.push(`holy_site = ${site}`)
   for (const doctrine of def.doctrines) lines.push(`doctrine = ${doctrine}`)
-  return lines
+  return def.options ? applyFaithOptions(lines.join('\n'), def.options).split('\n') : lines
+}
+
+function optionsOnLines(lines: string[], apply: (body: string) => string): string[] {
+  const text = lines.join('\n')
+  const block = scanBlocks(text)[0]
+  return spliceBody(text, block, apply(text.slice(block.bodyStart, block.bodyEnd))).split('\n')
 }
 
 /**
@@ -840,7 +868,11 @@ export function createReligion(modPath: string, file: string, def: NewReligion):
       lines.push('\t}')
       for (const doctrine of def.doctrines) lines.push(`\tdoctrine = ${doctrine}`)
       lines.push('}')
-      appendBlock(join(modPath, ...RELIGION_DIR.split('/')), file, lines)
+      appendBlock(
+        join(modPath, ...RELIGION_DIR.split('/')),
+        file,
+        optionsOnLines(lines, (body) => applyReligionOptions(body, def.options))
+      )
       return { ok: true }
     }
     const lines = [`${id} = {`, `\tfamily = ${def.family.trim()}`]
@@ -850,7 +882,11 @@ export function createReligion(modPath: string, file: string, def: NewReligion):
     }
     for (const doctrine of def.doctrines) lines.push(`\tdoctrine = ${doctrine}`)
     lines.push('', '\tfaiths = {', '\t}', '}')
-    appendBlock(join(modPath, ...RELIGION_DIR.split('/')), file, lines)
+    appendBlock(
+      join(modPath, ...RELIGION_DIR.split('/')),
+      file,
+      optionsOnLines(lines, (body) => applyReligionOptions(body, def.options))
+    )
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -889,7 +925,11 @@ export function saveRite(modPath: string, file: string, id: string, patch: RiteP
     }
     setListIfChanged(ed, 'doctrines', patch.doctrines)
     setListIfChanged(ed, 'tenets', patch.tenets)
-    writeFileSync(path, spliceBody(text, block, ed.lines.join('\n')), 'utf-8')
+    writeFileSync(
+      path,
+      spliceBody(text, block, applyRiteOptions(ed.lines.join('\n'), patch.options)),
+      'utf-8'
+    )
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -921,7 +961,11 @@ export function createRite(modPath: string, file: string, def: NewRite): SaveRes
     if (def.tenets.length) lines.push(`\ttenets = { ${def.tenets.join(' ')} }`)
     if (def.doctrines.length) lines.push(`\tdoctrines = { ${def.doctrines.join(' ')} }`)
     lines.push('}')
-    appendBlock(join(modPath, ...RITE_DIR.split('/')), file, lines)
+    appendBlock(
+      join(modPath, ...RITE_DIR.split('/')),
+      file,
+      optionsOnLines(lines, (body) => applyRiteOptions(body, def.options))
+    )
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -978,7 +1022,11 @@ export function createFaith(modPath: string, religionId: string, def: NewFaith):
         if (values?.length) lines.push(`\t${key} = { ${values.join(' ')} }`)
       }
       lines.push('}')
-      appendBlock(join(modPath, ...FAITH_DIR.split('/')), file, lines)
+      appendBlock(
+        join(modPath, ...FAITH_DIR.split('/')),
+        file,
+        optionsOnLines(lines, (body) => applyFaithOptions(body, def.options))
+      )
       return { ok: true }
     }
 

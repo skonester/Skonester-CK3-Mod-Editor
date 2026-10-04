@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, ExternalLink, Plus } from 'lucide-react'
-import type { RefLocation, ReligionData, SaveResult } from '@shared/types'
+import type { RefLocation, ReligionData, ReligionPatch, SaveResult } from '@shared/types'
+import { ReligionOptionsForm } from './ReligionOptionsForm'
+import { migrateDefinitionDraft } from '@/lib/definitionDraft'
 import { SAVE_HOTKEY_LABEL, useFormHotkeys } from '../hooks/useFormHotkeys'
 import { usePersistedDraft } from '../hooks/usePersistedDraft'
 import DoctrineEditor from './DoctrineEditor'
@@ -18,7 +20,7 @@ import { cn } from '@/lib/utils'
 import { adherentsOfFaith, adherentsOfReligion, faithsOfReligion, normId } from '@/lib/faithView'
 
 /** The editable fields of a religion. */
-interface ReligionDraft {
+interface ReligionDraft extends ReligionPatch {
   family: string | null
   graphicalFaith: string | null
   pietyIconGroup: string | null
@@ -62,7 +64,8 @@ export default function ReligionDetailPanel({
         family: religion.family,
         graphicalFaith: religion.graphicalFaith,
         pietyIconGroup: religion.pietyIconGroup,
-        doctrines: religion.doctrines
+        doctrines: religion.doctrines,
+        options: religion.options ?? {}
       }
     : null
 
@@ -77,7 +80,8 @@ export default function ReligionDetailPanel({
     tool: 'religions',
     ref: religion === null ? null : { id: religion.id, name: religion.localizedName },
     original,
-    editable
+    editable,
+    migrate: migrateDefinitionDraft
   })
 
   useEffect(() => {
@@ -116,7 +120,8 @@ export default function ReligionDetailPanel({
           family: draft.family,
           graphicalFaith: draft.graphicalFaith,
           pietyIconGroup: draft.pietyIconGroup,
-          doctrines: draft.doctrines
+          doctrines: draft.doctrines,
+          options: draft.options
         }
       )
       if (!result.ok) {
@@ -206,9 +211,8 @@ export default function ReligionDetailPanel({
         {religion !== null && !religion.inMod && (
           <Alert>
             <AlertDescription>
-              Defined in the base game (<code className="font-mono">{religion.file}</code>).
-              Editing game files isn&apos;t supported — copy the definition into the mod to change
-              it.
+              Defined in the base game (<code className="font-mono">{religion.file}</code>). Editing
+              game files isn&apos;t supported — copy the definition into the mod to change it.
             </AlertDescription>
           </Alert>
         )}
@@ -243,13 +247,22 @@ export default function ReligionDetailPanel({
                 disabled={!editable}
               />
             </div>
-            {textField('Graphical faith', draft.graphicalFaith, (v) =>
-              set({ graphicalFaith: v })
-            )}
-            {textField('Piety icon group', draft.pietyIconGroup, (v) =>
-              set({ pietyIconGroup: v })
-            )}
+            {textField('Graphical faith', draft.graphicalFaith, (v) => set({ graphicalFaith: v }))}
+            {textField('Piety icon group', draft.pietyIconGroup, (v) => set({ pietyIconGroup: v }))}
           </FormSection>
+        )}
+
+        {draft && religion && (
+          <ReligionOptionsForm
+            values={draft.options ?? {}}
+            onChange={(options) => set({ options })}
+            disabled={!editable}
+            modern={religion.format === '1.20'}
+            data={data}
+            gameDir={gameDir}
+            modPath={modPath}
+            replacePaths={replacePaths}
+          />
         )}
 
         {draft && religion && (

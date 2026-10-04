@@ -5,6 +5,8 @@ import { SAVE_HOTKEY_LABEL, useFormHotkeys } from '../hooks/useFormHotkeys'
 import { useFaithIcons } from '../useGameIcons'
 import DoctrineEditor from './DoctrineEditor'
 import TenetEditor from './TenetEditor'
+import { RiteOptionsForm } from './ReligionOptionsForm'
+import { migrateDefinitionDraft } from '@/lib/definitionDraft'
 import FormSection from './FormSection'
 import ReferenceInput, { openReferenceTarget } from './ReferenceInput'
 import ReferenceDisplay from './ReferenceDisplay'
@@ -56,14 +58,16 @@ export default function RitePanel({
         create: rite.create,
         convert: rite.convert,
         doctrines: rite.doctrines,
-        tenets: rite.tenets
+        tenets: rite.tenets,
+        options: rite.options ?? {}
       }
     : null
   const persisted = usePersistedDraft<RitePatch>({
     tool: 'rites',
     ref: rite ? { id: rite.id, name: rite.localizedName } : null,
     original,
-    editable: rite?.inMod ?? false
+    editable: rite?.inMod ?? false,
+    migrate: migrateDefinitionDraft
   })
   const [newDraft, setNewDraft] = useState<RitePatch>({
     faith: prefillFaith,
@@ -321,6 +325,17 @@ export default function RitePanel({
                 </div>
               ))}
             </FormSection>
+            <RiteOptionsForm
+              values={draft.options ?? {}}
+              onChange={(options) => set({ options })}
+              disabled={!editable}
+              dynamicName={rite?.dynamicName}
+              dynamicDescription={rite?.dynamicDescription}
+              data={data}
+              gameDir={gameDir}
+              modPath={modPath}
+              replacePaths={replacePaths}
+            />
             <FormSection title="Core tenets">
               <TenetEditor
                 values={draft.tenets}
@@ -332,8 +347,8 @@ export default function RitePanel({
                 replacePaths={replacePaths}
               />
               <p className="text-xs text-muted-foreground">
-                Conditional tenet selections, dynamic names, cultures, and dated overrides remain in
-                the file.
+                Conditional tenet selections and dynamic names remain in the definition file. Dated
+                overrides can be edited through the parent faith&apos;s history.
               </p>
             </FormSection>
             <FormSection title="Doctrines">

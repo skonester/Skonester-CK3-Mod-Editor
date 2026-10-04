@@ -13,6 +13,11 @@ import type {
   DynastyPatch,
   EditorInfo,
   FaithPatch,
+  FaithHistoryEntry,
+  FaithHistoryFields,
+  FaithHistoryPatch,
+  FaithHistoryPreview,
+  FaithHistoryTarget,
   HousePatch,
   ModFonts,
   ModInfo,
@@ -38,6 +43,40 @@ import type {
 } from '@shared/types'
 
 const api = {
+  getFaithHistory: (
+    gameDir: string | null,
+    modPath: string | null,
+    replacePaths: string[],
+    faithId: string
+  ): Promise<FaithHistoryEntry[]> =>
+    ipcRenderer.invoke('ck3:getFaithHistory', gameDir, modPath, replacePaths, faithId),
+  listFaithHistoryFiles: (modPath: string): Promise<string[]> =>
+    ipcRenderer.invoke('ck3:listFaithHistoryFiles', modPath),
+  prepareFaithHistoryScript: (
+    script: string,
+    patch?: Partial<FaithHistoryFields>
+  ): Promise<FaithHistoryPreview> =>
+    ipcRenderer.invoke('ck3:prepareFaithHistoryScript', script, patch),
+  saveFaithHistoryEntry: (
+    modPath: string,
+    faithId: string,
+    target: FaithHistoryTarget,
+    patch: FaithHistoryPatch
+  ): Promise<SaveResult> =>
+    ipcRenderer.invoke('ck3:saveFaithHistoryEntry', modPath, faithId, target, patch),
+  addFaithHistoryEntry: (
+    modPath: string,
+    file: string,
+    faithId: string,
+    patch: FaithHistoryPatch
+  ): Promise<SaveResult> =>
+    ipcRenderer.invoke('ck3:addFaithHistoryEntry', modPath, file, faithId, patch),
+  deleteFaithHistoryEntry: (
+    modPath: string,
+    faithId: string,
+    target: FaithHistoryTarget
+  ): Promise<SaveResult> =>
+    ipcRenderer.invoke('ck3:deleteFaithHistoryEntry', modPath, faithId, target),
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   setSettings: (patch: Partial<AppSettings>): Promise<AppSettings> =>
     ipcRenderer.invoke('settings:set', patch),
@@ -53,7 +92,8 @@ const api = {
     file: string,
     originalId: string,
     detail: CharacterDetail
-  ): Promise<SaveResult> => ipcRenderer.invoke('ck3:saveCharacter', modPath, file, originalId, detail),
+  ): Promise<SaveResult> =>
+    ipcRenderer.invoke('ck3:saveCharacter', modPath, file, originalId, detail),
   listCharacterFiles: (modPath: string): Promise<string[]> =>
     ipcRenderer.invoke('ck3:listCharacterFiles', modPath),
   getDnaPasteInfo: (modPath: string, file: string, id: string): Promise<DnaPasteInfo> =>
@@ -85,7 +125,8 @@ const api = {
     gameDir: string | null,
     modPath: string | null,
     replacePaths: string[]
-  ): Promise<DynastyData> => ipcRenderer.invoke('ck3:getDynastyData', gameDir, modPath, replacePaths),
+  ): Promise<DynastyData> =>
+    ipcRenderer.invoke('ck3:getDynastyData', gameDir, modPath, replacePaths),
   saveDynasty: (
     modPath: string,
     file: string,
@@ -108,15 +149,7 @@ const api = {
     id: string,
     patch: CulturePatch
   ): Promise<SaveResult> =>
-    ipcRenderer.invoke(
-      'ck3:saveCulture',
-      gameDir,
-      modPath,
-      replacePaths,
-      file,
-      id,
-      patch
-    ),
+    ipcRenderer.invoke('ck3:saveCulture', gameDir, modPath, replacePaths, file, id, patch),
   listDynastyFiles: (modPath: string): Promise<DynastyFiles> =>
     ipcRenderer.invoke('ck3:listDynastyFiles', modPath),
   createDynasty: (modPath: string, file: string, def: NewDynasty): Promise<SaveResult> =>
@@ -142,7 +175,8 @@ const api = {
     file: string,
     religionId: string,
     patch: ReligionPatch
-  ): Promise<SaveResult> => ipcRenderer.invoke('ck3:saveReligion', modPath, file, religionId, patch),
+  ): Promise<SaveResult> =>
+    ipcRenderer.invoke('ck3:saveReligion', modPath, file, religionId, patch),
   listReligionFiles: (modPath: string): Promise<string[]> =>
     ipcRenderer.invoke('ck3:listReligionFiles', modPath),
   createReligion: (modPath: string, file: string, def: NewReligion): Promise<SaveResult> =>
@@ -167,12 +201,8 @@ const api = {
     id: string
   ): Promise<TitleDetail | null> =>
     ipcRenderer.invoke('ck3:getTitle', gameDir, modPath, replacePaths, id),
-  saveTitle: (
-    modPath: string,
-    file: string,
-    id: string,
-    patch: TitlePatch
-  ): Promise<SaveResult> => ipcRenderer.invoke('ck3:saveTitle', modPath, file, id, patch),
+  saveTitle: (modPath: string, file: string, id: string, patch: TitlePatch): Promise<SaveResult> =>
+    ipcRenderer.invoke('ck3:saveTitle', modPath, file, id, patch),
   listTitleFiles: (modPath: string): Promise<string[]> =>
     ipcRenderer.invoke('ck3:listTitleFiles', modPath),
   createTitle: (modPath: string, def: NewTitle): Promise<SaveResult> =>
@@ -229,8 +259,7 @@ const api = {
     gameDir: string | null,
     modPath: string | null,
     replacePaths: string[]
-  ): Promise<string[]> =>
-    ipcRenderer.invoke('ck3:listFaithIcons', gameDir, modPath, replacePaths),
+  ): Promise<string[]> => ipcRenderer.invoke('ck3:listFaithIcons', gameDir, modPath, replacePaths),
   listCultureFiles: (modPath: string): Promise<string[]> =>
     ipcRenderer.invoke('ck3:listCultureFiles', modPath),
   createCulture: (modPath: string, file: string, def: NewCulture): Promise<SaveResult> =>

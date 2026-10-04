@@ -6,6 +6,8 @@ import { getReligionData, saveFaith, saveReligion, saveRite } from './religions'
 import { effectiveFiles, getReferenceData } from './refdata'
 import { getTitleData } from './titles'
 import { getTitleHistory } from './titleHistory'
+import { getFaithHistory, saveFaithHistoryEntry } from './faithHistory'
+import { scanBlocks } from './pdx'
 
 // Opt-in audit of real game data. All writes target isolated temporary copies.
 // CK3_GAME_DIR should point to .../ck3-mod-base/base/game or an installed game data folder.
@@ -24,6 +26,10 @@ describe.skipIf(!game)('supplied CK3 1.20 game data', () => {
       data.groups.find((g) => g.id === 'doctrine_marriage_type')?.doctrines.map((d) => d.id)
     ).toContain('doctrine_monogamy')
     expect(data.tenets?.map((t) => t.id)).toContain('tenet_communion')
+    expect(getFaithHistory(game!, null, [], 'christian_faith')[0]).toMatchObject({
+      mainRite: 'roman_rite',
+      rites: expect.arrayContaining(['insular_celtic'])
+    })
     const refs = getReferenceData(game!, null, [])
     expect(refs.faiths.map((f) => f.id)).toContain('christian_faith')
     expect(refs.rites?.map((r) => r.id)).toContain('roman_rite')
@@ -35,12 +41,13 @@ describe.skipIf(!game)('supplied CK3 1.20 game data', () => {
     ).toBe(true)
   }, 30000)
 
-  it('round-trips every supplied religion, faith, and rite definition without byte changes', () => {
+  it('round-trips every supplied definition, expanded setting, and faith history entry without byte changes', () => {
     const scratch = mkdtempSync(join(tmpdir(), 'ck3-live-audit-'))
     const dirs = [
       'common/religion/religion_types',
       'common/religion/faith_types',
-      'common/religion/rite_types'
+      'common/religion/rite_types',
+      'history/faiths'
     ]
     try {
       for (const dir of dirs) {
@@ -67,7 +74,8 @@ describe.skipIf(!game)('supplied CK3 1.20 game data', () => {
             holySites: f.holySites,
             mainRite: f.mainRite,
             tenets: f.tenets,
-            eminentHolySites: f.eminentHolySites
+            eminentHolySites: f.eminentHolySites,
+            options: f.options
           }),
           f.id
         ).toEqual({ ok: true })
@@ -81,10 +89,26 @@ describe.skipIf(!game)('supplied CK3 1.20 game data', () => {
             create: r.create,
             convert: r.convert,
             doctrines: r.doctrines,
-            tenets: r.tenets
+            tenets: r.tenets,
+            options: r.options
           }),
           r.id
         ).toEqual({ ok: true })
+      const historyIds = new Set(
+        effectiveFiles(null, scratch, [], 'history/faiths', true).flatMap((file) =>
+          scanBlocks(readFileSync(file, 'utf-8')).map((b) => b.key)
+        )
+      )
+      let historyCount = 0
+      for (const id of historyIds) {
+        for (const entry of getFaithHistory(null, scratch, [], id)) {
+          expect(saveFaithHistoryEntry(scratch, id, entry, entry), `${id} ${entry.date}`).toEqual({
+            ok: true
+          })
+          historyCount++
+        }
+      }
+      expect(historyCount).toBeGreaterThan(100)
       for (const [file, before] of originals)
         expect(readFileSync(file).equals(before), file).toBe(true)
     } finally {

@@ -12,8 +12,10 @@ export function blockList(body: string, key: string): string[] {
   return scanBlocks(body)
     .filter((b) => b.key.toLowerCase() === key.toLowerCase())
     .flatMap((b) => {
-      const inner = body.slice(b.bodyStart, b.bodyEnd).replace(/#[^\n]*/g, ' ')
-      return [...inner.matchAll(/"([^"\r\n]*)"|([^\s{}"]+)/g)].map((m) => m[1] ?? m[2])
+      const inner = body.slice(b.bodyStart, b.bodyEnd)
+      return [...inner.matchAll(/#[^\r\n]*|"([^"\r\n]*)"|([^\s{}"#]+)/g)]
+        .filter((m) => m[1] !== undefined || m[2] !== undefined)
+        .map((m) => m[1] ?? m[2])
     })
 }
 

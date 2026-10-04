@@ -7,6 +7,9 @@ import { useFaithIcons } from '../useGameIcons'
 import type { IconContext } from '../useGameIcons'
 import DoctrineEditor from './DoctrineEditor'
 import TenetEditor from './TenetEditor'
+import { FaithOptionsForm } from './ReligionOptionsForm'
+import FaithHistoryPanel from './FaithHistoryPanel'
+import { migrateDefinitionDraft } from '@/lib/definitionDraft'
 import ReferenceBadge from './ReferenceBadge'
 import ReferenceDisplay from './ReferenceDisplay'
 import ReferenceInput, { openReferenceTarget } from './ReferenceInput'
@@ -80,15 +83,19 @@ export default function FaithDetailPanel({
         religiousHead: faith.religiousHead,
         holySites: faith.holySites,
         doctrines: faith.doctrines,
-        ...(faith.format === '1.20' ? {
-          mainRite: faith.mainRite ?? null,
-          tenets: faith.tenets ?? [],
-          eminentHolySites: faith.eminentHolySites ?? []
-        } : {})
+        ...(faith.format === '1.20'
+          ? {
+              mainRite: faith.mainRite ?? null,
+              tenets: faith.tenets ?? [],
+              eminentHolySites: faith.eminentHolySites ?? []
+            }
+          : {}),
+        options: faith.options ?? {}
       }
     : null
 
   const [saving, setSaving] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedFlash, setSavedFlash] = useState(false)
 
@@ -99,7 +106,8 @@ export default function FaithDetailPanel({
     tool: 'faiths',
     ref: faith === null ? null : { id: faith.id, name: faith.localizedName },
     original,
-    editable
+    editable,
+    migrate: migrateDefinitionDraft
   })
 
   useEffect(() => {
@@ -163,7 +171,8 @@ export default function FaithDetailPanel({
           format: faith.format,
           mainRite: draft.mainRite,
           tenets: draft.tenets,
-          eminentHolySites: draft.eminentHolySites
+          eminentHolySites: draft.eminentHolySites,
+          options: draft.options
         }
       )
       if (!result.ok) {
@@ -178,7 +187,7 @@ export default function FaithDetailPanel({
     }
   }
 
-  useFormHotkeys({ onSave: save, canSave: editable && dirty && !saving, onClose })
+  useFormHotkeys({ onSave: save, canSave: editable && dirty && !saving && !historyOpen, onClose })
 
   const locateDoctrine = (v: string): Promise<RefLocation | null> =>
     window.ck3tools.locateRef(gameDir, modPath, replacePaths, 'doctrine', v)
@@ -376,8 +385,8 @@ export default function FaithDetailPanel({
                     readOnly
                   />
                   <p className="text-xs text-muted-foreground">
-                    From localization key <code className="font-mono">{faith.id}</code> — edit it
-                    in the mod&apos;s localization files.
+                    From localization key <code className="font-mono">{faith.id}</code> — edit it in
+                    the mod&apos;s localization files.
                   </p>
                 </div>
               </div>
@@ -420,11 +429,31 @@ export default function FaithDetailPanel({
                   followTitle="Open in Rite Editor"
                 />
                 <p className="text-xs text-muted-foreground">
-                  The main rite supplies core tenets. Dated changes are defined in history/faiths.
+                  The main rite supplies core tenets. Use Faith history for dated changes.
                 </p>
+                <FaithHistoryPanel
+                  faithId={faith.id}
+                  data={data}
+                  gameDir={gameDir}
+                  modPath={modPath}
+                  replacePaths={replacePaths}
+                  onOpenChange={setHistoryOpen}
+                />
               </div>
             )}
           </FormSection>
+        )}
+
+        {draft && faith?.format === '1.20' && (
+          <FaithOptionsForm
+            values={draft.options ?? {}}
+            onChange={(options) => set({ options })}
+            disabled={!editable}
+            data={data}
+            gameDir={gameDir}
+            modPath={modPath}
+            replacePaths={replacePaths}
+          />
         )}
 
         {draft && faith && holySitesField()}

@@ -13,6 +13,9 @@ import type {
   DynastyCharacter,
   DynastyDef,
   FaithDef,
+  FaithHistoryEntry,
+  FaithHistoryFields,
+  FaithHistoryPreview,
   HouseDef,
   RefEntry,
   ReligionDef,
@@ -23,6 +26,41 @@ import type {
   TitleSummary
 } from '@shared/types'
 import { TITLE_FLAG_KEYS } from '@shared/types'
+import { validateScriptFragment } from '@shared/scriptValidation'
+
+// Preview-only history data. The production bridge uses the main-process scanner/editor.
+const faithHistory = new Map<string, FaithHistoryEntry[]>()
+function mockFaithHistoryScript(
+  script: string,
+  patch?: Partial<FaithHistoryFields>
+): FaithHistoryPreview {
+  const fields = {
+    created: null,
+    mainRite: null,
+    religiousHead: null,
+    known: [],
+    permitted: [],
+    prohibited: []
+  } as FaithHistoryFields
+  for (const [field, key] of [
+    ['created', 'created'],
+    ['mainRite', 'main_rite'],
+    ['religiousHead', 'religious_head']
+  ] as const) {
+    const re = new RegExp(`\\b${key}\\s*=\\s*([^\\s{}#]+)`)
+    const value = patch?.[field]
+    if (value !== undefined)
+      script = script.replace(re, '') + (value ? `\n\t\t${key} = ${value}\n` : '')
+    fields[field] = re.exec(script)?.[1] ?? null
+  }
+  for (const key of ['known', 'permitted', 'prohibited'] as const) {
+    const re = new RegExp(`\\b${key}\\s*=\\s*\\{([^}]*)\\}`)
+    if (patch?.[key])
+      script = script.replace(re, '') + `\n\t\t${key} = { ${patch[key]!.join(' ')} }\n`
+    fields[key] = (re.exec(script)?.[1] ?? '').trim().split(/\s+/).filter(Boolean)
+  }
+  return { script, fields, error: validateScriptFragment(script) }
+}
 
 /** `{ id: name }` as reference entries; a null name means "no localization". */
 const named = (entries: Record<string, string | null>): RefEntry[] =>
@@ -417,10 +455,38 @@ const dynastyCharacters: DynastyCharacter[] = [
     death: '2779.1.1',
     spouses: ['E1']
   }),
-  dc({ id: 'M3', name: 'Antilochus', dynasty: 'mockidae', father: 'M2', birth: '2728.1.1.', death: '2757.1.1' }),
-  dc({ id: 'M4', name: 'Thrasymedes', dynasty: 'mockidae', father: 'M2', birth: '2735.1', death: '2807.1.1' }),
-  dc({ id: 'M5', name: 'Peryclemus', dynasty: 'mockidae', father: 'M2', birth: '2739.1.1', death: '2788.1.1' }),
-  dc({ id: 'M6', name: 'Polycaste', dynasty: 'mockidae', father: 'M2', female: true, birth: '2741.1.1' }),
+  dc({
+    id: 'M3',
+    name: 'Antilochus',
+    dynasty: 'mockidae',
+    father: 'M2',
+    birth: '2728.1.1.',
+    death: '2757.1.1'
+  }),
+  dc({
+    id: 'M4',
+    name: 'Thrasymedes',
+    dynasty: 'mockidae',
+    father: 'M2',
+    birth: '2735.1',
+    death: '2807.1.1'
+  }),
+  dc({
+    id: 'M5',
+    name: 'Peryclemus',
+    dynasty: 'mockidae',
+    father: 'M2',
+    birth: '2739.1.1',
+    death: '2788.1.1'
+  }),
+  dc({
+    id: 'M6',
+    name: 'Polycaste',
+    dynasty: 'mockidae',
+    father: 'M2',
+    female: true,
+    birth: '2741.1.1'
+  }),
   // Island 2: 257+ years later, no parent chain back to island 1
   dc({ id: 'M10', name: 'Neomockos', dynasty: 'mockidae', birth: '3040.1.1', death: '3101.1.1' }),
   dc({
@@ -440,17 +506,30 @@ const dynastyCharacters: DynastyCharacter[] = [
     mother: 'O1',
     birth: '3095.1.1'
   }),
-  dc({ id: 'B1', name: 'Betaion', house: 'house_Beta', father: 'X7', birth: '3070.1.1', death: '3141.1.1' }),
+  dc({
+    id: 'B1',
+    name: 'Betaion',
+    house: 'house_Beta',
+    father: 'X7',
+    birth: '3070.1.1',
+    death: '3141.1.1'
+  }),
   dc({ id: 'B2', name: 'Betaides', house: 'house_Beta', father: 'B1', birth: '3103.1.1' }),
   // Members of a house that is defined nowhere (dangling ref)
   dc({ id: 'G1', name: 'Ghostly', house: 'house_ghostly', birth: '3075.1.1', death: '3129.1.1' }),
   // External context characters (ghost parents / spouses)
   dc({ id: 'X7', name: 'Herakles', dynasty: '7', birth: '3041.1.1', death: '3099.1.1' }),
   dc({ id: 'O1', name: 'Omphale', dynasty: '7', female: true, birth: '3072.1.1' }),
-  dc({ id: 'E1', name: 'Eurydike', dynasty: 'vanity_game', female: true, birth: '2695.1.1', death: '2760.1.1' }),
+  dc({
+    id: 'E1',
+    name: 'Eurydike',
+    dynasty: 'vanity_game',
+    female: true,
+    birth: '2695.1.1',
+    death: '2760.1.1'
+  }),
   dc({ id: 'L1', name: 'Lowborn Larry', birth: '3050.1.1' })
 ]
-
 
 // ---------- Religions & faiths ----------
 
@@ -742,6 +821,48 @@ const titleHistories = new Map<string, TitleHistoryEntry[]>([
 ])
 
 const mock: Ck3ToolsApi = {
+  getFaithHistory: async (_g, _m, _r, faithId) => structuredClone(faithHistory.get(faithId) ?? []),
+  listFaithHistoryFiles: async () => ['00_my_faith_history.txt'],
+  prepareFaithHistoryScript: async (script, patch) => mockFaithHistoryScript(script, patch),
+  addFaithHistoryEntry: async (_m, file, id, patch) => {
+    const rows = faithHistory.get(id) ?? []
+    rows.push({
+      ...patch,
+      ...mockFaithHistoryScript(patch.script).fields,
+      file,
+      inMod: true,
+      faithBlock: rows.length,
+      index: 0,
+      rites: []
+    })
+    faithHistory.set(id, rows)
+    return { ok: true }
+  },
+  saveFaithHistoryEntry: async (_m, id, target, patch) => {
+    const row = faithHistory
+      .get(id)
+      ?.find(
+        (e) =>
+          e.file === target.file && e.faithBlock === target.faithBlock && e.index === target.index
+      )
+    if (!row) return { ok: false, error: 'History entry not found' }
+    Object.assign(row, patch, mockFaithHistoryScript(patch.script).fields)
+    return { ok: true }
+  },
+  deleteFaithHistoryEntry: async (_m, id, target) => {
+    faithHistory.set(
+      id,
+      (faithHistory.get(id) ?? []).filter(
+        (e) =>
+          !(
+            e.file === target.file &&
+            e.faithBlock === target.faithBlock &&
+            e.index === target.index
+          )
+      )
+    )
+    return { ok: true }
+  },
   getSettings: async () => structuredClone(settings),
   setSettings: async (patch) => Object.assign(settings, patch) && structuredClone(settings),
   detectPaths: async () => ({ gameDir: settings.gameDir, modDir: settings.modDir }),
@@ -800,7 +921,11 @@ const mock: Ck3ToolsApi = {
   getCultureData: async () => ({
     cultures: structuredClone(cultures),
     pillars: {
-      ethos: named({ ethos_bellicose: 'Bellicose', ethos_stoic: 'Stoic', ethos_communal: 'Communal' }),
+      ethos: named({
+        ethos_bellicose: 'Bellicose',
+        ethos_stoic: 'Stoic',
+        ethos_communal: 'Communal'
+      }),
       heritage: named({
         heritage_hellenic: 'Hellenic',
         heritage_north_germanic: 'North Germanic',
@@ -840,7 +965,10 @@ const mock: Ck3ToolsApi = {
     const c = cultures.find((x) => x.file === file && x.id === id)
     if (!c) return { ok: false, error: `Culture ${id} not found in ${file}` }
     Object.assign(c, patch, {
-      color: patch.color === null ? null : { ...(c.color ?? { format: 'rgb' as const, raw: '' }), hex: patch.color }
+      color:
+        patch.color === null
+          ? null
+          : { ...(c.color ?? { format: 'rgb' as const, raw: '' }), hex: patch.color }
     })
     return { ok: true }
   },
@@ -950,8 +1078,13 @@ const mock: Ck3ToolsApi = {
     families: named({ rf_pagan: 'Pagan', rf_abrahamic: 'Abrahamic', rf_mock: null }),
     adherents: characters
       .filter((c) => c.faith !== null || !!c.rite)
-      .map((c) => ({ id: c.id, file: c.file, name: c.name,
-        faith: (c.rite ? rites.find((r) => r.id === c.rite)?.faith : null) ?? c.faith ?? c.rite!, rite: c.rite ?? null }))
+      .map((c) => ({
+        id: c.id,
+        file: c.file,
+        name: c.name,
+        faith: (c.rite ? rites.find((r) => r.id === c.rite)?.faith : null) ?? c.faith ?? c.rite!,
+        rite: c.rite ?? null
+      }))
   }),
   saveFaith: async (_modPath, file, _religionId, faithId, patch) => {
     const f = faiths.find((x) => x.file === file && x.id === faithId)
@@ -1067,20 +1200,20 @@ const mock: Ck3ToolsApi = {
     summary.province = patch.province
     return { ok: true }
   },
-  listTitleFiles: async () =>
-    [...new Set(titles.filter((t) => t.inMod).map((t) => t.file))].sort(),
+  listTitleFiles: async () => [...new Set(titles.filter((t) => t.inMod).map((t) => t.file))].sort(),
   createTitle: async (_modPath, def) => {
     // Mod-only, like the backend: shadowing a base-game title is legal
-    const taken = titles.find(
-      (t) => t.inMod && t.id.toLowerCase() === def.id.trim().toLowerCase()
-    )
+    const taken = titles.find((t) => t.inMod && t.id.toLowerCase() === def.id.trim().toLowerCase())
     if (taken) return { ok: false, error: `ID ${def.id} already exists in ${taken.file}` }
     const tier =
       ({ h: 'hegemony', e: 'empire', k: 'kingdom', d: 'duchy', c: 'county', b: 'barony' } as const)[
         def.id.trim()[0]?.toLowerCase() as 'h' | 'e' | 'k' | 'd' | 'c' | 'b'
       ] ?? 'duchy'
     const parent = def.parent?.trim() || null
-    if (parent !== null && !titles.some((t) => t.inMod && t.id.toLowerCase() === parent.toLowerCase())) {
+    if (
+      parent !== null &&
+      !titles.some((t) => t.inMod && t.id.toLowerCase() === parent.toLowerCase())
+    ) {
       return { ok: false, error: `Title ${parent} isn't defined in the mod` }
     }
     const file = parent === null ? (def.file ?? 'mock_titles.txt') : 'mock_titles.txt'
@@ -1112,7 +1245,8 @@ const mock: Ck3ToolsApi = {
       dejurePath: path,
       parent,
       children: [],
-      color: def.color === null ? null : { hex: def.color, raw: `{ ${def.color} }`, editable: true },
+      color:
+        def.color === null ? null : { hex: def.color, raw: `{ ${def.color} }`, editable: true },
       capital: def.capital,
       province: def.province,
       flags: structuredClone(def.flags),
@@ -1164,8 +1298,7 @@ const mock: Ck3ToolsApi = {
   },
   getFaithIcons: async (_g, _m, _r, icons) => Object.fromEntries(icons.map((i) => [i, null])),
   listFaithIcons: async () => ['delos_palm', 'hellenic', 'hellenic_reformed', 'orthodox'],
-  getTraitIcons: async (_g, _m, _r, traits) =>
-    Object.fromEntries(traits.map((t) => [t, null])),
+  getTraitIcons: async (_g, _m, _r, traits) => Object.fromEntries(traits.map((t) => [t, null])),
   // Initial-letter stand-ins for the game's silhouettes: opaque black on
   // transparent like the real .dds files, so the mask tinting is exercised in
   // browser-mode dev. Real icons need Electron (game files + main process).
@@ -1183,8 +1316,7 @@ const mock: Ck3ToolsApi = {
           )
       ])
     ),
-  getSkillIcons: async (_g, _m, _r, skills) =>
-    Object.fromEntries(skills.map((s) => [s, null])),
+  getSkillIcons: async (_g, _m, _r, skills) => Object.fromEntries(skills.map((s) => [s, null])),
   // A quartered stand-in so browser-mode dev shows the layout; real rendering
   // needs Electron (game files + main process). Only some ids get one, so the
   // "no coat of arms" placeholder is reachable here too.

@@ -17,6 +17,8 @@ interface Options<T> {
   original: T | null
   /** Read-only rows (base-game definitions) keep no draft */
   editable: boolean
+  /** Supply defaults for fields introduced since a draft was stored. */
+  migrate?: (stored: T, current: T) => T
 }
 
 export interface PersistedDraft<T> {
@@ -38,7 +40,13 @@ export interface PersistedDraft<T> {
  * closing a row, switching tools or restarting the app never silently drops
  * an edit. The page lists whatever is still outstanding as "Unsaved" chips.
  */
-export function usePersistedDraft<T>({ tool, ref, original, editable }: Options<T>): PersistedDraft<T> {
+export function usePersistedDraft<T>({
+  tool,
+  ref,
+  original,
+  editable,
+  migrate
+}: Options<T>): PersistedDraft<T> {
   const { drafts, persistDraft } = useEntryHistory(tool)
   const key = ref === null ? null : entryKey(ref)
   const originalJson = original === null ? null : JSON.stringify(original)
@@ -80,8 +88,13 @@ export function usePersistedDraft<T>({ tool, ref, original, editable }: Options<
       const stored = editable ? (storeRef.current[key] as EntryDraft<T> | undefined) : undefined
       // A resumed draft is measured against the file's CURRENT state, so
       // dirty/save/revert all work against what's really on disk.
-      setDraft(structuredClone(stored ? stored.draft : original))
-      setStale(stored !== undefined && JSON.stringify(stored.original) !== originalJson)
+      setDraft(
+        structuredClone(stored ? (migrate?.(stored.draft, original) ?? stored.draft) : original)
+      )
+      setStale(
+        stored !== undefined &&
+          JSON.stringify(migrate?.(stored.original, original) ?? stored.original) !== originalJson
+      )
       return
     }
     // Same row, but its parse moved under us — a save, a reload, or an edit in
