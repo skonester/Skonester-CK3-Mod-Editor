@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — CK3 1.20 support
+## v0.2.2 — CK3 1.20 support
 
 - Add dated faith-history editing with complete-script access to rite/DLC setups and popularity, persistent drafts, and stale-file protection.
 - Expand faith, rite, and religion settings with culture associations, reserved names, rite heads, origins, government overrides, holy-site limits, and weighted virtues/sins.
