@@ -61,6 +61,7 @@ Electron-based suite of editing tools for Crusader Kings III: Character Editor, 
   2. `git merge origin/master` into the session branch, resolving any conflicts
   3. re-run `npm run typecheck` and `npm test`
   4. `git push origin HEAD:master`
+  5. delete the session branch once it's on master — locally (`git branch -d`, from outside it) and on origin if it was ever pushed — so finished `claude/…` branches don't pile up
 - Push to `master` only with typecheck and tests green. If either fails and you can't fix it, leave the work on the branch, push the branch, and say so.
 - Worktree sessions stay: several run at once, so keep working on the session's own `claude/…` branch and land it at the end rather than committing on `master` directly.
 - This does not update the main checkout at `C:\kevin\js\ck3-tools` — it's a separate worktree with its own state. Never touch it; the user pulls there when they want it current.
