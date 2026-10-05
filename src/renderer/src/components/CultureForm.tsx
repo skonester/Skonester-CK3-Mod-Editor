@@ -168,7 +168,6 @@ export default function CultureForm({
           placeholder={`Add ${label.toLowerCase()}…`}
           onAdd={(v) => onChange([...values, v])}
           renderItem={opts.renderItem}
-          limit={40}
         />
       )}
       {notes?.[key]}

@@ -133,7 +133,6 @@ export default function DoctrineEditor({
                 options={options.filter((o) => !own.includes(o.id))}
                 placeholder="Add…"
                 onAdd={(v) => set(group, [...own, v])}
-                limit={80}
               />
             )}
           </div>
@@ -144,7 +143,6 @@ export default function DoctrineEditor({
             options={options}
             placeholder={inherited.length > 0 ? `inherited: ${inheritedLabel}` : 'none'}
             locate={locate}
-            limit={80}
             disabled={disabled}
           />
         )}
@@ -224,7 +222,6 @@ export default function DoctrineEditor({
               options={ungrouped.filter((o) => !doctrines.includes(o.id))}
               placeholder="Add ungrouped doctrine…"
               onAdd={(v) => onChange([...doctrines, v])}
-              limit={80}
             />
           )}
         </div>

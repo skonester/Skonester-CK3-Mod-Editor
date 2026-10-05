@@ -252,7 +252,6 @@ export default function FaithCreatePanel({
               onChange={(v) => set({ icon: v })}
               options={iconOptions}
               placeholder="none"
-              limit={60}
             />
           </div>
         </div>

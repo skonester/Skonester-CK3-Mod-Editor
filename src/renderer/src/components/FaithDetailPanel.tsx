@@ -212,7 +212,6 @@ export default function FaithDetailPanel({
           options={iconOptions}
           placeholder="none"
           disabled={!editable}
-          limit={60}
         />
       </div>
     </div>
@@ -307,7 +306,6 @@ export default function FaithDetailPanel({
             onAdd={(v) => {
               if (!otherSites.some((s) => normId(s) === normId(v))) change([...sites, v])
             }}
-            limit={60}
           />
         )}
       </FormSection>

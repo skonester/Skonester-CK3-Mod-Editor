@@ -754,7 +754,6 @@ export default function CharacterForm({
             placeholder="Add trait…"
             onAdd={addTrait}
             renderItem={(t) => <TraitOption trait={t} iconCtx={iconCtx} />}
-            limit={40}
           />
         </div>
 

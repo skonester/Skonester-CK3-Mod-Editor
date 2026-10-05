@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { ArrowRight, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
+import { Combobox as ComboboxPrimitive } from '@base-ui/react'
+import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual'
 import type { RefEntry, RefLocation } from '@shared/types'
 import ReferenceLabel, { findRef, refLabel } from './ReferenceLabel'
 import { Button } from '@/components/ui/button'
@@ -57,10 +59,11 @@ interface Props {
    * user's text editor. Ignored when onNavigate is provided.
    */
   locate?: (value: string) => Promise<RefLocation | null>
-  /** Custom option rendering (e.g. trait icons); defaults to a ReferenceLabel */
+  /**
+   * Custom option rendering (e.g. trait icons); defaults to a ReferenceLabel.
+   * The list is virtualized, so this only runs for the rows in view.
+   */
   renderItem?: (item: RefEntry) => React.ReactNode
-  /** Cap on dropdown entries; mod lists (dynasties especially) can run to thousands */
-  limit?: number
   /** Tooltip for the follow button; defaults to wording for a definition site. */
   followTitle?: string
   /**
@@ -81,13 +84,14 @@ export default function ReferenceInput({
   onNavigate,
   locate,
   renderItem,
-  limit = 100,
   followTitle,
   disabled = false,
   className
 }: Props): React.JSX.Element {
   const [opening, setOpening] = useState(false)
   const [inputText, setInputText] = useState('')
+  const [listEl, setListEl] = useState<HTMLDivElement | null>(null)
+  const virtualizerRef = useRef<Virtualizer<HTMLDivElement, Element> | null>(null)
 
   // Keep a value that isn't in the reference lists (typo, unscanned file) visible
   const items = useMemo(
@@ -129,7 +133,14 @@ export default function ReferenceInput({
     <ButtonGroup className={cn('w-full', className)}>
       <Combobox
         items={items as RefEntry[]}
-        limit={limit}
+        // Mod lists (dynasties, titles) run to thousands, so only the rows in
+        // view are rendered; every option stays reachable by scrolling.
+        virtualized
+        onItemHighlighted={(_, { reason, index }) => {
+          // Keyboard navigation can land on a row that isn't rendered yet
+          if (reason === 'pointer' || index < 0) return
+          virtualizerRef.current?.scrollToIndex(index)
+        }}
         value={onAdd ? null : selected}
         onValueChange={select}
         // Options are objects, so the combobox needs telling how to turn one
@@ -153,12 +164,12 @@ export default function ReferenceInput({
         />
         <ComboboxContent>
           <ComboboxEmpty>No matches.</ComboboxEmpty>
-          <ComboboxList>
-            {(item: RefEntry) => (
-              <ComboboxItem key={item.id} value={item}>
-                {renderItem ? renderItem(item) : <ReferenceLabel entry={item} />}
-              </ComboboxItem>
-            )}
+          <ComboboxList ref={setListEl}>
+            <VirtualItems
+              scrollElement={listEl}
+              virtualizerRef={virtualizerRef}
+              renderItem={renderItem}
+            />
           </ComboboxList>
         </ComboboxContent>
       </Combobox>
@@ -174,5 +185,47 @@ export default function ReferenceInput({
         </Button>
       )}
     </ButtonGroup>
+  )
+}
+
+/** The filtered options, rendering only the rows scrolled into view. */
+function VirtualItems({
+  scrollElement,
+  virtualizerRef,
+  renderItem
+}: {
+  scrollElement: HTMLDivElement | null
+  virtualizerRef: React.RefObject<Virtualizer<HTMLDivElement, Element> | null>
+  renderItem?: (item: RefEntry) => React.ReactNode
+}): React.JSX.Element | null {
+  const filtered = ComboboxPrimitive.useFilteredItems<RefEntry>()
+  const virtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => scrollElement,
+    estimateSize: () => 28,
+    overscan: 12
+  })
+  virtualizerRef.current = virtualizer
+
+  if (filtered.length === 0) return null
+  return (
+    <div role="presentation" className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+      {virtualizer.getVirtualItems().map((row) => {
+        const item = filtered[row.index]
+        return (
+          <ComboboxItem
+            key={row.key}
+            index={row.index}
+            value={item}
+            data-index={row.index}
+            ref={virtualizer.measureElement}
+            className="absolute top-0 left-0"
+            style={{ transform: `translateY(${row.start}px)` }}
+          >
+            {renderItem ? renderItem(item) : <ReferenceLabel entry={item} />}
+          </ComboboxItem>
+        )
+      })}
+    </div>
   )
 }

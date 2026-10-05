@@ -337,7 +337,6 @@ function EntryForm({
           options={data.successionLaws.filter((l) => !laws.includes(l.id))}
           placeholder="Set succession law…"
           onAdd={(v) => set({ successionLaws: [...laws, v] })}
-          limit={60}
         />
         <Hint value="Setting laws replaces the title's whole law set at this date." />
       </div>
