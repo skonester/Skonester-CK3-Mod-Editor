@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.3 — Scripted characters
+
+- Show everything a mod does to a character in their editor, not just their history record: script run on them (`character:<id> = { … }` in scripted effects, on_actions, events), titles they hold, bookmarks, vassal/employer setup, and the parts of their record the form doesn't cover. Each statement shows how the game reaches it and under what conditions, and is editable in place — traits, perks, flags, sexuality and amounts as fields, everything else as script.
+- Fold scripted traits, sexuality and skill changes into the character's own fields, marked with where they come from.
+- Save script edits together with the form; a statement that changed on disk fails the save with nothing written, and a no-op save leaves every file byte-identical.
+- Make every option in reference dropdowns reachable — lists stopped around "C" before.
+
 ## v0.2.2 — CK3 1.20 support
 
 - Add dated faith-history editing with complete-script access to rite/DLC setups and popularity, persistent drafts, and stale-file protection.
