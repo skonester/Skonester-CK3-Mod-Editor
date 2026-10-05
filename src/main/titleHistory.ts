@@ -1,12 +1,12 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { join, relative } from 'path'
 import { DATE_KEY } from './characters'
-import { endOfBodyIndex, makeEditor, setBlockBody, setScalar, splitComment, withEol } from './lineEditor'
-import { annotateLines, scanBlocks, scanScalarsCI, topLevelCode } from './pdx'
+import { endOfBodyIndex, makeEditor, setBlockBody, setScalar, splitComment, withEol } from '@shared/lineEditor'
+import { annotateLines, scanBlocks, scanScalarsCI, topLevelCode } from '@shared/pdx'
 import { effectiveFiles, isUnderDir } from './refdata'
 import { norm } from './religions'
 import { KEY_CHARS, appendBlock, isTxtRelativePath } from './scriptFile'
-import type { BlockSpan } from './pdx'
+import type { BlockSpan } from '@shared/pdx'
 import type {
   SaveResult,
   TitleHistoryEntry,

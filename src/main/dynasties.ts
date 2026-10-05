@@ -1,12 +1,12 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { basename, join } from 'path'
 import { DATE_KEY } from './characters'
-import { makeEditor, setScalar } from './lineEditor'
+import { makeEditor, setScalar } from '@shared/lineEditor'
 import { readLocalization } from './localization'
-import { annotateLines, scanBlocks, scanScalarsCI } from './pdx'
+import { annotateLines, scanBlocks, scanScalarsCI } from '@shared/pdx'
 import { effectiveFiles, isUnderDir } from './refdata'
 import { appendBlock, isTxtFileName, KEY_CHARS, listTxtFiles } from './scriptFile'
-import type { BlockSpan } from './pdx'
+import type { BlockSpan } from '@shared/pdx'
 import type {
   DynastyCharacter,
   DynastyData,

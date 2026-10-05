@@ -1,4 +1,4 @@
-import { ClipboardPaste, Plus, X } from 'lucide-react'
+import { ClipboardPaste, Plus, ScrollText, X } from 'lucide-react'
 import type {
   CalendarConfig,
   CharacterDetail,
@@ -11,6 +11,13 @@ import type {
 import { STAT_LABELS } from '../statLabels'
 import { useFlatIcons, useSkillIcons, useTraitIcons } from '../useGameIcons'
 import type { IconContext } from '../useGameIcons'
+import { readScopeEffects } from '@shared/scopeEffects'
+import CharacterScriptSection, {
+  amountLabel,
+  isScopeEffect,
+  scriptedTraits,
+  siteSource
+} from './CharacterScriptSection'
 import CoatOfArms from './CoatOfArms'
 import ReferenceInput from './ReferenceInput'
 import ReferenceBadge from './ReferenceBadge'
@@ -212,7 +219,29 @@ export default function CharacterForm({
   onPasteDna
 }: Props): React.JSX.Element {
   const iconCtx: IconContext = { gameDir, modPath, replacePaths }
-  const iconFor = useTraitIcons(iconCtx, draft.traits)
+  // Script that runs on the character, folded into the fields it changes
+  const scripts = draft.scripts ?? []
+  const extraTraits = scriptedTraits(scripts)
+  const scopeFx = scripts
+    .filter((s) => isScopeEffect(s) && s.text !== '')
+    .map((site) => ({ site, fx: readScopeEffects(site.text) }))
+    .filter((x) => x.fx !== null) as {
+    site: (typeof scripts)[number]
+    fx: NonNullable<ReturnType<typeof readScopeEffects>>
+  }[]
+  const scriptSexuality = scopeFx.find((x) => x.fx.sexuality !== null)
+  const scriptRemovals = scopeFx.flatMap(({ site, fx }) =>
+    [...fx.removeTraits, ...fx.calls.filter((c) => /remove/i.test(c))].map((what) => ({
+      what,
+      from: siteSource(site)
+    }))
+  )
+  const scriptSkills = scopeFx.flatMap(({ site, fx }) =>
+    fx.amounts
+      .filter((a) => /^add_[a-z]+_skill$/.test(a.key))
+      .map((a) => ({ ...a, from: siteSource(site) }))
+  )
+  const iconFor = useTraitIcons(iconCtx, [...draft.traits, ...extraTraits.map((t) => t.trait)])
   const flatIconFor = useFlatIcons(iconCtx, FLAT_ICONS)
   const skillIconFor = useSkillIcons(
     iconCtx,
@@ -659,6 +688,12 @@ export default function CharacterForm({
             </Select>
           </div>
         </div>
+        {scriptSexuality && (
+          <Hint
+            label="Script sets sexuality"
+            value={`${scriptSexuality.fx.sexuality} — ${siteSource(scriptSexuality.site)}`}
+          />
+        )}
       </FieldSet>
 
       <FormSection title="Life & lineage">
@@ -745,10 +780,28 @@ export default function CharacterForm({
                 onRemove={() => set({ traits: draft.traits.filter((x) => x !== t) })}
               />
             ))}
-            {draft.traits.length === 0 && (
+            {extraTraits.map((t, i) => (
+              <span key={`script:${t.trait}:${i}`} title={t.source}>
+                <ReferenceBadge
+                  entry={findRef(refData?.traits ?? [], t.trait)}
+                  icon={iconFor(t.trait)}
+                  marker={<ScrollText className="size-3 shrink-0 text-muted-foreground" aria-label="Added by script" />}
+                  locate={() => window.ck3tools.locateRef(gameDir, modPath, replacePaths, 'trait', t.trait)}
+                  removeTitle={`Remove from ${t.source}`}
+                  onRemove={() => set({ scripts: t.remove(scripts) })}
+                />
+              </span>
+            ))}
+            {draft.traits.length === 0 && extraTraits.length === 0 && (
               <span className="text-sm text-muted-foreground">none</span>
             )}
           </div>
+          {scriptRemovals.length > 0 && (
+            <Hint
+              label="Script also removes"
+              value={scriptRemovals.map((r) => `${r.what} (${r.from})`).join(', ')}
+            />
+          )}
           <ReferenceInput
             options={(refData?.traits ?? []).filter((t) => !draft.traits.includes(t.id))}
             placeholder="Add trait…"
@@ -788,6 +841,14 @@ export default function CharacterForm({
               </label>
             ))}
           </div>
+          {scriptSkills.length > 0 && (
+            <Hint
+              label="Script adds"
+              value={scriptSkills
+                .map((a) => `${amountLabel(a.key)} ${Number(a.value) >= 0 ? '+' : ''}${a.value} (${a.from})`)
+                .join(', ')}
+            />
+          )}
         </div>
       </FormSection>
 
@@ -816,6 +877,19 @@ export default function CharacterForm({
           />
         </div>
       </FormSection>
+
+      {draft.scripts && (
+        <CharacterScriptSection
+          sites={draft.scripts}
+          onChange={(next) => set({ scripts: next })}
+          modPath={modPath}
+          gameDir={gameDir}
+          replacePaths={replacePaths}
+          refData={refData}
+          characters={characters}
+          onNavigate={onNavigate}
+        />
+      )}
     </>
   )
 }

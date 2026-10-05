@@ -1,5 +1,5 @@
 import { readFileSync } from 'fs'
-import { scanBlocks, scanScalars } from './pdx'
+import { scanBlocks, scanScalars } from '@shared/pdx'
 import { effectiveFiles } from './refdata'
 import { resolveIcons } from './icons'
 

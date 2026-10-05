@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
-import { scanBlocks } from './pdx'
+import { scanBlocks } from '@shared/pdx'
 import type { ReligionFormat } from '@shared/types'
 
 export const FAITH_DIR = 'common/religion/faith_types'

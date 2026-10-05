@@ -110,6 +110,7 @@ export default function CharacterDetailPanel({
     setDraft(null)
     setError(null)
     setStale(false)
+    setSavedFlash(false)
     window.ck3tools.getCharacter(modPath, file, id).then((parsed) => {
       const d = parsed === null ? null : withDefaults(parsed)
       setOriginal(d)
@@ -170,8 +171,12 @@ export default function CharacterDetailPanel({
       // Cancel any in-flight persist and clear the stored draft immediately
       pendingPersist.current = null
       onDraftChange(file, original.id, null)
-      setOriginal(structuredClone(toSave))
-      setDraft(toSave)
+      // Re-read rather than adopt the draft: script statements were found by
+      // their on-disk text, which the save just changed
+      const fresh = await window.ck3tools.getCharacter(modPath, file, toSave.id)
+      const saved = fresh === null ? toSave : withDefaults(fresh)
+      setOriginal(structuredClone(saved))
+      setDraft(saved)
       setSavedFlash(true)
       setStale(false)
       onSaved(file, toSave.id)

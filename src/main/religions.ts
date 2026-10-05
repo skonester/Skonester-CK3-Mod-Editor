@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { basename, join } from 'path'
-import { makeEditor, setBlockList, setRepeatedScalar, setScalar } from './lineEditor'
+import { makeEditor, setBlockList, setRepeatedScalar, setScalar } from '@shared/lineEditor'
 import { KEY_CHARS, appendBlock, isTxtFileName } from './scriptFile'
 import {
   applyFaithOptions,
@@ -11,7 +11,7 @@ import {
   readRiteOptions
 } from './religionOptions'
 import { readLocalization } from './localization'
-import { annotateLines, scanBlocks, scanRepeatedScalarCI, scanScalarsCI } from './pdx'
+import { annotateLines, scanBlocks, scanRepeatedScalarCI, scanScalarsCI } from '@shared/pdx'
 import { effectiveFiles, isUnderDir } from './refdata'
 import {
   FAITH_DIR,
@@ -21,7 +21,7 @@ import {
   nestedBody,
   religionFormat
 } from './religionSchema'
-import type { BlockSpan } from './pdx'
+import type { BlockSpan } from '@shared/pdx'
 import type {
   FaithAdherent,
   FaithColor,

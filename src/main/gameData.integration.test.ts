@@ -7,7 +7,7 @@ import { effectiveFiles, getReferenceData } from './refdata'
 import { getTitleData } from './titles'
 import { getTitleHistory } from './titleHistory'
 import { getFaithHistory, saveFaithHistoryEntry } from './faithHistory'
-import { scanBlocks } from './pdx'
+import { scanBlocks } from '@shared/pdx'
 
 // Opt-in audit of real game data. All writes target isolated temporary copies.
 // CK3_GAME_DIR should point to .../ck3-mod-base/base/game or an installed game data folder.

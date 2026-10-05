@@ -1,7 +1,7 @@
 import type { FaithOptions, ReligionOptions, RiteOptions } from '@shared/types'
 import { terminateScriptComment, validateScriptFragment } from '@shared/scriptValidation'
-import { makeEditor, setBlockBody, setBlockList, setScalar } from './lineEditor'
-import { scanBlocks, scanScalarsCI } from './pdx'
+import { makeEditor, setBlockBody, setBlockList, setScalar } from '@shared/lineEditor'
+import { scanBlocks, scanScalarsCI } from '@shared/pdx'
 import { blockList, nestedBody } from './religionSchema'
 import { KEY_CHARS } from './scriptFile'
 

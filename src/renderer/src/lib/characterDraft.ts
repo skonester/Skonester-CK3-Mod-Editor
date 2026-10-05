@@ -14,6 +14,8 @@ export function normalizeCharacterDraft(
     spouses: (detail.spouses ?? []).map((s) => ({ ...s, concubine: s.concubine === true })),
     relations: detail.relations ?? [],
     dna: detail.dna ?? null,
+    // Drafts from before the script view carry none: take the file's
+    scripts: detail.scripts ?? current?.scripts,
     // Undefined means the older editor never saw this field; null is an explicit clear.
     // Append it consistently so JSON-based draft comparisons ignore property order.
     rite: rite === undefined ? (current?.rite ?? null) : rite

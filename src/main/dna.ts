@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { getCharacter, setCharacterDna } from './characters'
-import { scanBlocks, scanScalars } from './pdx'
+import { scanBlocks, scanScalars } from '@shared/pdx'
 import { effectiveFiles } from './refdata'
 import { listTxtFiles } from './scriptFile'
 import type { DnaPasteInfo, SaveResult } from '@shared/types'

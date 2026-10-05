@@ -267,6 +267,71 @@ export interface CharacterDetail {
   sexuality: string | null
   /** Raw `dna =` value: a key defined in common/dna_data; null if unset */
   dna: string | null
+  /**
+   * Everything else in the mod that shapes this character: the parts of their
+   * own history record the fields above don't cover, script that runs on
+   * them (`character:<id> = { … }` in scripted effects, on_actions, events)
+   * and statements elsewhere that name them. Saved alongside the fields.
+   * Absent from drafts older than the script view.
+   */
+  scripts?: ScriptSite[]
+}
+
+/** Entity kinds a script addresses as `<kind>:<id>` */
+export type ScriptScopeKind = 'character' | 'title' | 'faith' | 'culture' | 'dynasty' | 'house'
+
+/** One step of the way the game reaches a script site */
+export interface ScriptHop {
+  /** The on_action, scripted effect, event id, decision… */
+  name: string
+  kind:
+    | 'on_action'
+    | 'scripted_effect'
+    | 'scripted_trigger'
+    | 'event'
+    | 'decision'
+    | 'history'
+    | 'bookmark'
+    | 'other'
+  /** The hop's own `trigger = { … }` gate (on_actions, events), compacted to one line */
+  condition: string | null
+}
+
+/**
+ * One statement in the mod's script that touches an entity, editable in place.
+ * `text` is the whole statement as on disk — `character:205523 = { … }`,
+ * `holder = 205523`, `tfc_set_liege_effect = { VASSAL = 145017 LIEGE = 205523 }`
+ * — and replacing it (or emptying it, to delete) splices just that span.
+ */
+export interface ScriptSite {
+  /** Unique within one read: file plus offset */
+  id: string
+  /** Path relative to the mod root, forward slashes */
+  file: string
+  /** 1-based line the statement starts on */
+  line: number
+  /** Keys of the enclosing blocks, outermost first, ending with the statement's own key */
+  path: string[]
+  /**
+   * own: part of the entity's own record the form fields don't cover.
+   * scope: a `<kind>:<id> = { … }` block — script run on (or tested against) the entity.
+   * reference: a statement elsewhere that names the entity.
+   */
+  role: 'own' | 'scope' | 'reference'
+  /** Whether the statement runs effects or sits in a condition */
+  context: 'effect' | 'trigger'
+  /** What the statement means for the entity, in a few words */
+  summary: string
+  /** Each way the game reaches this statement, entry point first */
+  reachedFrom: ScriptHop[][]
+  /** `limit`s of the `if`s the statement sits in, compacted to one line each */
+  conditions: string[]
+  /** Which of several identical statements under the same path this is */
+  occurrence: number
+  /** The statement exactly as read; the save finds it again by this */
+  diskText: string
+  /** The statement as edited; empty deletes it */
+  text: string
 }
 
 /**
@@ -985,6 +1050,8 @@ export interface ReferenceData {
   faiths: RefEntry[]
   rites?: RefEntry[]
   traits: RefEntry[]
+  /** Ids from `common/lifestyle_perks` */
+  perks?: RefEntry[]
   /** Ids from `common/dynasties` */
   dynasties: RefEntry[]
   /** Ids from `common/dynasty_houses` */

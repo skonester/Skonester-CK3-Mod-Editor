@@ -8,12 +8,12 @@ import {
   setBlockList,
   setScalar,
   splitComment
-} from './lineEditor'
+} from '@shared/lineEditor'
 import { readLocalization, resolveLocReferences } from './localization'
 import { appendBlock, isTxtFileName, KEY_CHARS, listTxtFiles } from './scriptFile'
-import { annotateLines, scanBlocks, scanScalarsCI } from './pdx'
+import { annotateLines, scanBlocks, scanScalarsCI } from '@shared/pdx'
 import { effectiveFiles, isUnderDir } from './refdata'
-import type { LineEditor } from './lineEditor'
+import type { LineEditor } from '@shared/lineEditor'
 import type {
   CultureCharacter,
   CultureColor,

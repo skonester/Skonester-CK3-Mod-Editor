@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { basename, join } from 'path'
 import { DATED_BLOCK_KEY } from './titleHistory'
-import { makeEditor, setBlockBody, setScalar, splitComment } from './lineEditor'
+import { makeEditor, setBlockBody, setScalar, splitComment } from '@shared/lineEditor'
 import { readLocalization } from './localization'
-import { annotateLines, scanBlocks, scanScalarsCI } from './pdx'
+import { annotateLines, scanBlocks, scanScalarsCI } from '@shared/pdx'
 import { effectiveFiles, isUnderDir } from './refdata'
 import {
   colorTriple,
@@ -15,7 +15,7 @@ import {
   setColor
 } from './religions'
 import { KEY_CHARS, appendBlock, isTxtFileName, listTxtFiles } from './scriptFile'
-import type { LineEditor } from './lineEditor'
+import type { LineEditor } from '@shared/lineEditor'
 import type {
   NewTitle,
   RefEntry,

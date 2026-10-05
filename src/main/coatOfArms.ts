@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'fs'
 import { basename, join } from 'path'
-import { scanBlocks, stripComments } from './pdx'
+import { scanBlocks, stripComments } from '@shared/pdx'
 import { effectiveFiles } from './refdata'
 import { decodeDds, encodePng } from './dds'
 

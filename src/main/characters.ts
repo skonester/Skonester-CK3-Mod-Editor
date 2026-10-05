@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import {
   endOfBodyIndex,
   eolSuffix,
@@ -9,17 +9,19 @@ import {
   setScalar,
   splitComment,
   withEol
-} from './lineEditor'
-import { annotateLines, scanBlocks, scanRepeatedScalar, scanScalars } from './pdx'
+} from '@shared/lineEditor'
+import { annotateLines, scanBlocks, scanRepeatedScalar, scanScalars } from '@shared/pdx'
 import { appendBlock, isTxtFileName, KEY_CHARS } from './scriptFile'
-import type { LineEditor } from './lineEditor'
+import { applyScriptSites, getScriptSites } from './scriptSites'
+import type { LineEditor } from '@shared/lineEditor'
 import type {
   CharacterDetail,
   CharacterRelation,
   CharacterSpouse,
   CharacterStats,
   CharacterSummary,
-  SaveResult
+  SaveResult,
+  ScriptSite
 } from '@shared/types'
 
 // Tolerates typos that appear in real mod files: a trailing dot ("3220.1.1.")
@@ -476,6 +478,51 @@ export function getCharacter(modPath: string, file: string, id: string): Charact
   const block = scanBlocks(text).find((b) => b.key === id)
   if (!block) return null
   return parseBlockDetail(text.slice(block.bodyStart, block.bodyEnd), id, file)
+}
+
+// ---------- Script ----------
+
+/** Record statements the form edits; anything else in the record is shown as script */
+const MANAGED_KEYS = new Set([
+  'name',
+  'dynasty',
+  'dynasty_house',
+  'culture',
+  'religion',
+  'faith',
+  'rite',
+  'father',
+  'mother',
+  'trait',
+  'female',
+  'sexuality',
+  'dna',
+  ...STAT_KEYS
+])
+
+/** Dated-block statements the form edits (birth/death and marriages) */
+const MANAGED_DATED_KEYS = new Set([
+  'birth',
+  'death',
+  'add_spouse',
+  'add_matrilineal_spouse',
+  'remove_spouse',
+  'add_concubine',
+  'remove_concubine'
+])
+
+/**
+ * Everything in the mod that shapes a character beyond the form's fields: the
+ * rest of their own record, script run on them, and statements naming them.
+ */
+export function characterScripts(modPath: string, file: string, id: string): ScriptSite[] {
+  return getScriptSites(modPath, 'character', id, {
+    file: `history/characters/${file}`,
+    key: id,
+    managedKeys: MANAGED_KEYS,
+    managedDatedKeys: MANAGED_DATED_KEYS,
+    managedEffect: (key) => /^set_relation_/i.test(key)
+  })
 }
 
 // ---------- Saving ----------
@@ -962,7 +1009,12 @@ export function saveCharacter(
       text.slice(block.start + originalId.length, block.bodyStart) +
       newBody +
       text.slice(block.bodyEnd)
-    writeFileSync(path, updated, 'utf-8')
+    // Script edits land on the same in-memory texts, so a statement that can't
+    // be placed fails the whole save before anything is written
+    const texts = new Map([[resolve(path), updated]])
+    const scriptError = applyScriptSites(modPath, texts, detail.scripts ?? [])
+    if (scriptError) return { ok: false, error: scriptError }
+    for (const [p, t] of texts) writeFileSync(p, t, 'utf-8')
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }

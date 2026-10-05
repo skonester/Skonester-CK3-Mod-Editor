@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { readLocalization } from './localization'
-import { scanBlocks, scanScalars, scanScalarsCI } from './pdx'
+import { scanBlocks, scanScalars, scanScalarsCI } from '@shared/pdx'
 import { FAITH_DIR, RITE_DIR, TENET_DIR, nestedBody } from './religionSchema'
 import type { RefEntry, RefKind, RefLocation, ReferenceData } from '@shared/types'
 
@@ -164,6 +164,18 @@ function listTraits(
   return [...keys].sort()
 }
 
+function listPerks(
+  gameDir: string | null,
+  modPath: string | null,
+  replacePaths: string[]
+): string[] {
+  const keys = new Set<string>()
+  for (const file of effectiveFiles(gameDir, modPath, replacePaths, 'common/lifestyle_perks')) {
+    for (const key of topLevelKeys(file)) keys.add(key)
+  }
+  return [...keys].sort()
+}
+
 function listDnas(gameDir: string | null, modPath: string | null, replacePaths: string[]): string[] {
   const keys = new Set<string>()
   for (const file of effectiveFiles(gameDir, modPath, replacePaths, 'common/dna_data')) {
@@ -213,6 +225,9 @@ function listNameKeys(
 /** The localization key a trait's display name lives under. */
 const traitLocKey = (id: string): string => `trait_${id}`
 
+/** The localization key a lifestyle perk's display name lives under. */
+const perkLocKey = (id: string): string => `${id}_name`
+
 export function getReferenceData(
   gameDir: string | null,
   modPath: string | null,
@@ -222,6 +237,7 @@ export function getReferenceData(
   const faiths = listFaiths(gameDir, modPath, replacePaths)
   const rites = listRites(gameDir, modPath, replacePaths)
   const traits = listTraits(gameDir, modPath, replacePaths)
+  const perks = listPerks(gameDir, modPath, replacePaths)
   // Kept apart: a character's `dynasty` and `dynasty_house` are separate
   // fields, each offering only the ids that are valid for it
   const dynastyNames = listNameKeys(gameDir, modPath, replacePaths, 'common/dynasties')
@@ -235,7 +251,8 @@ export function getReferenceData(
     ...cultures,
     ...faiths,
     ...rites.values(),
-    ...traits.map(traitLocKey)
+    ...traits.map(traitLocKey),
+    ...perks.map(perkLocKey)
   ])
   for (const names of [dynastyNames, houseNames]) {
     for (const key of names.values()) if (key !== null) wanted.add(key)
@@ -253,6 +270,7 @@ export function getReferenceData(
     faiths: entries(faiths, (id) => id),
     rites: entries([...rites.keys()].sort(), (id) => rites.get(id) ?? id),
     traits: entries(traits, traitLocKey),
+    perks: entries(perks, perkLocKey),
     dynasties: entries([...dynastyNames.keys()].sort(), (id) => dynastyNames.get(id) ?? null),
     houses: entries([...houseNames.keys()].sort(), (id) => houseNames.get(id) ?? null),
     // DNAs have no localization — the id is the whole story

@@ -17,9 +17,11 @@ export function makeEditor(body: string): LineEditor {
   const annotated = annotateLines(body)
   const lines = annotated.map((l) => l.text)
   const depths = annotated.map((l) => l.depth)
-  // Detect the block's indentation from its first scalar line
+  // Detect the block's indentation from its first scalar line. In a
+  // multi-line body the first line is the rest of the opening `{` line
+  // (` #Baldwin`), whose leading space isn't indentation
   let indent = '\t'
-  for (let i = 0; i < lines.length; i++) {
+  for (let i = lines.length > 1 ? 1 : 0; i < lines.length; i++) {
     const m = lines[i].match(/^(\s+)\S/)
     if (depths[i] === 0 && m) {
       indent = m[1]

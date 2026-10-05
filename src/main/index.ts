@@ -6,6 +6,7 @@ import { loadSettings, saveSettings } from './settings'
 import { detectPaths, listMods, normalizeGameDir, validateGameDir, validateModDir } from './ck3'
 import {
   createCharacter,
+  characterScripts,
   getCharacter,
   listCharacterFiles,
   listCharacters,
@@ -173,9 +174,10 @@ function registerIpc(): void {
   ipcMain.handle('ck3:detectPaths', () => detectPaths())
   ipcMain.handle('ck3:listMods', (_e, modDir: string) => listMods(modDir))
   ipcMain.handle('ck3:listCharacters', (_e, modPath: string) => listCharacters(modPath))
-  ipcMain.handle('ck3:getCharacter', (_e, modPath: string, file: string, id: string) =>
-    getCharacter(modPath, file, id)
-  )
+  ipcMain.handle('ck3:getCharacter', (_e, modPath: string, file: string, id: string) => {
+    const detail = getCharacter(modPath, file, id)
+    return detail && { ...detail, scripts: characterScripts(modPath, file, id) }
+  })
   ipcMain.handle(
     'ck3:saveCharacter',
     (_e, modPath: string, file: string, originalId: string, detail: CharacterDetail) =>
