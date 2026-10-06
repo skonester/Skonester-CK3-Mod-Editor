@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readdirSync, readFileSync } from 'fs'
+import { writeModText } from './modWrite'
 import { basename, join } from 'path'
 import { DATE_KEY } from './characters'
 import {
@@ -636,7 +637,7 @@ export function saveCulture(
     }
 
     const updated = text.slice(0, block.bodyStart) + ed.lines.join('\n') + text.slice(block.bodyEnd)
-    writeFileSync(path, updated, 'utf-8')
+    writeModText(path, updated)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }

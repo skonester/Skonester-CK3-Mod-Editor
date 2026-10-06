@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync } from 'fs'
+import { writeModText } from './modWrite'
 import { dirname, join } from 'path'
 
 /**
@@ -51,5 +52,5 @@ export function appendBlock(dir: string, file: string, lines: string[]): void {
   if (prefix !== '' && !prefix.endsWith('\n')) prefix += eol
   if (prefix !== '' && !/(\r?\n){2}$/.test(prefix)) prefix += eol
   if (existing === null) mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, prefix + lines.join(eol) + eol, 'utf-8')
+  writeModText(path, prefix + lines.join(eol) + eol)
 }

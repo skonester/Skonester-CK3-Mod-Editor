@@ -188,7 +188,8 @@ function ColumnFilter({ column, nameOf }: ColumnFilterProps): React.JSX.Element 
 }
 
 export default function ReligionEditorPage(): React.JSX.Element {
-  const { settings, selectedMod } = useApp()
+  // (dataRevision: files of the mod changed under the editor — an undo, a map edit: read again)
+  const { settings, selectedMod, dataRevision } = useApp()
   const { isMobile, setOpen, setOpenMobile } = useSidebar()
   const navigate = useNavigate()
   const [data, setData] = useState<ReligionData | null>(null)
@@ -258,7 +259,7 @@ export default function ReligionEditorPage(): React.JSX.Element {
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => void reload(), [modPath])
+  useEffect(() => void reload(), [modPath, dataRevision])
 
   // Switching mods invalidates the open row, but only on a real change: on the
   // first render the URL may already carry a deep link that must survive.
@@ -269,7 +270,7 @@ export default function ReligionEditorPage(): React.JSX.Element {
       closeRow()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modPath])
+  }, [modPath, dataRevision])
 
   /** Display name for a family id, matched lowercased like every other id. */
   const familyName = useMemo(() => {

@@ -1371,6 +1371,12 @@ const mock: Ck3ToolsApi = {
   getModFonts: async () => null,
   validateGameDir: async () => ({ valid: true, reason: null }),
   validateModDir: async () => ({ valid: true, reason: null }),
+  onSettingsChanged: () => () => {},
+  onModFilesChanged: () => () => {},
+  listUndo: async () => [],
+  undo: async () => null,
+  forgetUndo: async () => false,
+  onUndoChanged: () => () => {},
   // No game files in the browser: the index never gets past idle
   ensureGameIndex: async () => ({ state: 'idle' }),
   getGameIndexStatus: async () => ({ state: 'idle' }),

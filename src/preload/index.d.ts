@@ -40,7 +40,9 @@ import type {
   TitleDetail,
   TitleHistoryEntry,
   TitleHistoryEntryPatch,
-  TitlePatch
+  TitlePatch,
+  UndoResult,
+  UndoStep
 } from '@shared/types'
 
 export interface Ck3ToolsApi {
@@ -73,6 +75,16 @@ export interface Ck3ToolsApi {
     target: FaithHistoryTarget
   ) => Promise<SaveResult>
   getSettings: () => Promise<AppSettings>
+  /** Settings changed by the main process (the Mods page set the active mod …) */
+  onSettingsChanged: (listener: (s: AppSettings) => void) => () => void
+  /** Files of the selected mod changed under the editors (an undo, an edit from the map) */
+  onModFilesChanged: (listener: (files: string[]) => void) => () => void
+  /** The selected mod's undoable changes, newest first */
+  listUndo: () => Promise<UndoStep[]>
+  /** Undo one change (the last when `id` is absent); `refused` says why not */
+  undo: (id?: number) => Promise<UndoResult | null>
+  forgetUndo: (id: number) => Promise<boolean>
+  onUndoChanged: (listener: (steps: UndoStep[]) => void) => () => void
   setSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
   detectPaths: () => Promise<DetectionResult>
   listMods: (modDir: string) => Promise<ModInfo[]>

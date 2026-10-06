@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readdirSync, readFileSync } from 'fs'
+import { writeModText } from './modWrite'
 import { basename, join } from 'path'
 import { DATE_KEY } from './characters'
 import { makeEditor, setScalar } from '@shared/lineEditor'
@@ -248,7 +249,7 @@ function saveDef(path: string, file: string, id: string, fields: FieldPatch[]): 
       setScalar(ed, [key], value, { quoteNew, ignoreCase: true })
     }
     const updated = text.slice(0, block.bodyStart) + ed.lines.join('\n') + text.slice(block.bodyEnd)
-    writeFileSync(path, updated, 'utf-8')
+    writeModText(path, updated)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }

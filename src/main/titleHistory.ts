@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
+import { writeModText } from './modWrite'
 import { join, relative } from 'path'
 import { DATE_KEY } from './characters'
 import { endOfBodyIndex, makeEditor, setBlockBody, setScalar, splitComment, withEol } from '@shared/lineEditor'
@@ -285,7 +286,7 @@ export function saveTitleHistoryEntry(
       text.slice(keyStart + d.key.length, title.bodyStart + d.bodyStart) +
       ed.lines.join('\n') +
       text.slice(title.bodyStart + d.bodyEnd)
-    writeFileSync(path, updated, 'utf-8')
+    writeModText(path, updated)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -366,11 +367,10 @@ export function addTitleHistoryEntry(
       ]
       const newBody =
         (content === '' ? '' : ` ${content}`) + eol + block.join(eol) + eol + closingIndent
-      writeFileSync(
+      writeModText(
         path,
-        text.slice(0, title.bodyStart) + newBody + text.slice(title.bodyEnd),
-        'utf-8'
-      )
+        text.slice(0, title.bodyStart) + newBody + text.slice(title.bodyEnd)
+    )
       return { ok: true }
     }
 
@@ -384,7 +384,7 @@ export function addTitleHistoryEntry(
     ed.lines.splice(at, 0, ...withEol(ed, block, at))
     const updated =
       text.slice(0, title.bodyStart) + ed.lines.join('\n') + text.slice(title.bodyEnd)
-    writeFileSync(path, updated, 'utf-8')
+    writeModText(path, updated)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -420,7 +420,7 @@ export function deleteTitleHistoryEntry(
       body.slice(0, from) +
       body.slice(to) +
       text.slice(title.bodyEnd)
-    writeFileSync(path, updated, 'utf-8')
+    writeModText(path, updated)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }

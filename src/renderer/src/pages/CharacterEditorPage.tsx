@@ -252,7 +252,8 @@ function ColumnFilter({
 }
 
 export default function CharacterEditorPage(): React.JSX.Element {
-  const { settings, selectedMod } = useApp()
+  // (dataRevision: files of the mod changed under the editor — an undo, a map edit: read again)
+  const { settings, selectedMod, dataRevision } = useApp()
   const { isMobile, setOpen, setOpenMobile } = useSidebar()
   const [characters, setCharacters] = useState<CharacterSummary[]>([])
   const [loading, setLoading] = useState(false)
@@ -362,7 +363,7 @@ export default function CharacterEditorPage(): React.JSX.Element {
       .getReferenceData(settings?.gameDir ?? null, modPath, selectedMod?.replacePaths ?? [])
       .then(setRefData)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modPath])
+  }, [modPath, dataRevision])
 
   // Whichever character is open — clicked here, or deep-linked from another
   // tool — is recorded as a visit once the list knows its name.

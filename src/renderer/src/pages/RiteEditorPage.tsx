@@ -27,7 +27,8 @@ import { normId } from '@/lib/faithView'
 import { cn } from '@/lib/utils'
 
 export default function RiteEditorPage(): React.JSX.Element {
-  const { settings, selectedMod } = useApp()
+  // (dataRevision: files of the mod changed under the editor — an undo, a map edit: read again)
+  const { settings, selectedMod, dataRevision } = useApp()
   const navigate = useNavigate()
   const search = useSearch({ from: '/rites' })
   const history = useEntryHistory('rites')
@@ -67,7 +68,7 @@ export default function RiteEditorPage(): React.JSX.Element {
     return () => {
       loadId.current++
     }
-  }, [modPath, gameDir, JSON.stringify(replacePaths)])
+  }, [modPath, gameDir, JSON.stringify(replacePaths), dataRevision])
   const previousMod = useRef(modPath)
   useEffect(() => {
     if (previousMod.current !== modPath) {

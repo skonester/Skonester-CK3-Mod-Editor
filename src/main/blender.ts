@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { copyFileSync, existsSync, mkdirSync, renameSync, writeFileSync } from 'fs'
+import { mkdirSync, renameSync, writeFileSync } from 'fs'
 import { basename, dirname, isAbsolute, join, relative } from 'path'
 import { Worker } from 'worker_threads'
 import type {
@@ -9,6 +9,8 @@ import type {
 } from '../crusaderpope/shared/api'
 import type { ImportOutcome, ModelExportPlan } from '../crusaderpope/main/blender/types'
 import { callGameIndex, gameIndexLayering } from './gameIndex'
+import { recordWrite } from '../crusaderpope/main/mods/undo'
+import { modId, modsHost, undoable } from './modsHost'
 
 /**
  * The Blender round trip of a model (CrusaderPope's blender/ipc.ts, on this
@@ -17,8 +19,7 @@ import { callGameIndex, gameIndexLayering } from './gameIndex'
  * Blender" converts an edited glTF/GLB back into the mesh and the textures that
  * changed, written into the selected mod at their game paths (a mod's file of
  * the same path replaces the game's). The conversion runs on CrusaderPope's
- * blenderWorker thread. There's no undo history here, so a file the mod
- * already had is copied to `userData/blender-backups/<time>/` first.
+ * blenderWorker thread; an import is one undoable change.
  */
 
 /** Folders used last this session: exports go there again, imports start there */
@@ -75,7 +76,7 @@ async function importPlan(
   if (!selected?.path || !selected.pathExists) {
     return { plan: { problem: 'Select a mod to import into.' } }
   }
-  const mod = { id: selected.file, name: selected.name, loaded: true }
+  const mod = { id: modId(selected.file), name: selected.name, loaded: true }
   let model: ModelExportPlan
   try {
     model = await exportPlan(path, pdxmesh)
@@ -141,7 +142,7 @@ async function importGltf(
     mods,
     plan: model,
     file: source,
-    activeMod: selected.file
+    activeMod: modId(selected.file)
   })
 
   // Every path checked before the first write
@@ -150,27 +151,20 @@ async function importGltf(
     if (!abs) throw new Error(`${w.rel} is not a path inside the mod folder.`)
     return { rel: w.rel, abs, what: w.what }
   })
-  const notes = [...out.notes]
-  const replaced = files.filter((f) => existsSync(f.abs))
-  if (replaced.length > 0) {
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const backup = join(app.getPath('userData'), 'blender-backups', stamp)
-    for (const f of replaced) {
-      const to = join(backup, ...f.rel.split('/'))
-      mkdirSync(dirname(to), { recursive: true })
-      copyFileSync(f.abs, to)
-    }
-    notes.push(`The mod's previous ${replaced.length === 1 ? 'file is' : 'files are'} backed up in ${backup}`)
-  }
-  out.writes.forEach((w, i) => writeAtomic(files[i].abs, w.data))
+  out.writes.forEach((w, i) =>
+    recordWrite(modsHost, files[i].abs, () => {
+      writeAtomic(files[i].abs, w.data)
+      return w.data
+    })
+  )
   // (the mod folder's watcher hands the files to the game index)
   return {
-    mod: { id: selected.file, name: selected.name, loaded: true },
+    mod: { id: modId(selected.file), name: selected.name, loaded: true },
     source,
     files,
     shapes: out.shapes,
     removed: out.removed,
-    notes,
+    notes: out.notes,
     warnings: out.warnings,
     reindex: true
   }
@@ -182,6 +176,8 @@ export function registerBlenderIpc(): void {
     'model:importPlan',
     async (_e, path: string, pdxmesh?: string) => (await importPlan(path, pdxmesh)).plan
   )
-  ipcMain.handle('model:import', (e, path: string, pdxmesh?: string) => importGltf(e, path, pdxmesh))
+  ipcMain.handle('model:import', (e, path: string, pdxmesh?: string) =>
+    undoable(`Import into ${basename(path)}`, () => importGltf(e, path, pdxmesh))
+  )
   ipcMain.handle('shell:revealFile', (_e, file: string) => shell.showItemInFolder(file))
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Link, Outlet, useLocation } from '@tanstack/react-router'
 import {
   BookOpen,
@@ -13,7 +14,8 @@ import {
   Package,
   PanelLeft,
   Settings,
-  Shield
+  Shield,
+  Undo2
 } from 'lucide-react'
 import { useApp } from './AppContext'
 import logo from './assets/logo.png'
@@ -93,6 +95,39 @@ function IndexStatusItem(): React.JSX.Element | null {
           {indexing ? <Spinner /> : <DatabaseZap />}
           <span className="truncate text-xs">{label}</span>
         </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  )
+}
+
+/**
+ * Takes back the selected mod's last change — a save in any editor, an edit
+ * from the map, a Blender import (CrusaderPope's undo journal, kept across
+ * restarts). Only when there is one.
+ */
+function UndoItem(): React.JSX.Element | null {
+  const { undoSteps } = useApp()
+  const [busy, setBusy] = useState(false)
+  const last = undoSteps[0]
+  if (!last) return null
+  const run = async (): Promise<void> => {
+    setBusy(true)
+    try {
+      const r = await window.ck3tools.undo()
+      if (!r) return
+      if (r.refused) toast.error(`Can't undo “${r.label}”`, { description: r.refused })
+      else toast.success(`Undid “${r.label}”`, { description: r.left ? `${r.left} more to undo` : undefined })
+    } catch (e) {
+      toast.error('Undo failed', { description: (e as Error).message })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton disabled={busy} tooltip={`Undo: ${last.label}`} onClick={() => void run()}>
+        <Undo2 />
+        <span className="truncate">Undo: {last.label}</span>
       </SidebarMenuButton>
     </SidebarMenuItem>
   )
@@ -222,7 +257,8 @@ export default function RootLayout(): React.JSX.Element {
             </SidebarContent>
             <SidebarFooter>
               <SidebarMenu>
-                <IndexStatusItem />
+                <UndoItem />
+              <IndexStatusItem />
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === '/settings'} tooltip="Settings">
                     <Link to="/settings">

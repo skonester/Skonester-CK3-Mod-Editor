@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync } from 'fs'
+import { writeModText } from './modWrite'
 import { join } from 'path'
 import { getCharacter, setCharacterDna } from './characters'
 import { scanBlocks, scanScalars } from '@shared/pdx'
@@ -135,13 +136,13 @@ function upsertBlock(path: string, key: string, renderLines: (eol: string) => st
   const block = renderLines(eol).join(eol)
   const hit = existing === null ? undefined : scanBlocks(existing).find((b) => b.key === key)
   if (existing !== null && hit) {
-    writeFileSync(path, existing.slice(0, hit.start) + block + existing.slice(hit.end), 'utf-8')
+    writeModText(path, existing.slice(0, hit.start) + block + existing.slice(hit.end))
     return
   }
   let prefix = existing ?? ''
   if (prefix !== '' && !prefix.endsWith('\n')) prefix += eol
   if (prefix !== '' && !/(\r?\n){2}$/.test(prefix)) prefix += eol
-  writeFileSync(path, prefix + block + eol, 'utf-8')
+  writeModText(path, prefix + block + eol)
 }
 
 function writeDnaBlock(
@@ -241,7 +242,7 @@ function writeModifierEntry(
   }
 
   if (!existsSync(path)) {
-    writeFileSync(path, newGroupLines(groupName(new Set())).join('\n') + '\n', 'utf-8')
+    writeModText(path, newGroupLines(groupName(new Set())).join('\n') + '\n')
     return
   }
 
@@ -283,13 +284,13 @@ function writeModifierEntry(
     if (prefix !== '' && !prefix.endsWith('\n')) prefix += eol
     if (prefix !== '' && !/(\r?\n){2}$/.test(prefix)) prefix += eol
     const name = groupName(new Set(groups.map((g) => g.key)))
-    writeFileSync(path, prefix + newGroupLines(name).join(eol) + eol, 'utf-8')
+    writeModText(path, prefix + newGroupLines(name).join(eol) + eol)
     return
   }
   const body = text.slice(group.bodyStart, group.bodyEnd)
   const newBody =
     body.replace(/\s+$/, '') + eol + eol + modifierEntryLines(entryKey, characterId, picks).join(eol) + eol
-  writeFileSync(path, text.slice(0, group.bodyStart) + newBody + text.slice(group.bodyEnd), 'utf-8')
+  writeModText(path, text.slice(0, group.bodyStart) + newBody + text.slice(group.bodyEnd))
 }
 
 // ---------- The dialog's info + apply entry points ----------

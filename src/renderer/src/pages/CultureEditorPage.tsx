@@ -260,7 +260,8 @@ function ColumnFilter({
 }
 
 export default function CultureEditorPage(): React.JSX.Element {
-  const { settings, selectedMod } = useApp()
+  // (dataRevision: files of the mod changed under the editor — an undo, a map edit: read again)
+  const { settings, selectedMod, dataRevision } = useApp()
   const { isMobile, setOpen, setOpenMobile } = useSidebar()
   const navigate = useNavigate()
   const [data, setData] = useState<CultureData | null>(null)
@@ -339,7 +340,7 @@ export default function CultureEditorPage(): React.JSX.Element {
   useEffect(() => {
     void reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modPath])
+  }, [modPath, dataRevision])
 
   // Switching mods invalidates the open row, but only on a real change: on the
   // first render the URL may already carry a deep link that must survive.
@@ -350,7 +351,7 @@ export default function CultureEditorPage(): React.JSX.Element {
       closeRow()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modPath])
+  }, [modPath, dataRevision])
 
   /** Display name for any pillar id, for the list columns and their filters. */
   const pillarName = useMemo(

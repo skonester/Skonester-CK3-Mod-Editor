@@ -59,6 +59,7 @@ import { getCoatsOfArms } from './coatOfArms'
 import { detectEditors, openInEditor } from './editor'
 import { callGameIndex, ensureGameIndex, gameIndexStatus, getReferences } from './gameIndex'
 import { registerBlenderIpc } from './blender'
+import { forgetUndo, undo, undoable, undoSteps } from './modsHost'
 import {
   handleImageProtocol,
   imageInfo,
@@ -202,19 +203,28 @@ function registerIpc(): void {
   ipcMain.handle(
     'ck3:saveFaithHistoryEntry',
     (_e, modPath: string, faithId: string, target: FaithHistoryTarget, patch: FaithHistoryPatch) =>
-      saveFaithHistoryEntry(modPath, faithId, target, patch)
+      undoable(`Saved faith history entry ${faithId}`, () =>
+        saveFaithHistoryEntry(modPath, faithId, target, patch)
+      )
   )
   ipcMain.handle(
     'ck3:addFaithHistoryEntry',
     (_e, modPath: string, file: string, faithId: string, patch: FaithHistoryPatch) =>
-      addFaithHistoryEntry(modPath, file, faithId, patch)
+      undoable(`Added faith history entry ${faithId}`, () =>
+        addFaithHistoryEntry(modPath, file, faithId, patch)
+      )
   )
   ipcMain.handle(
     'ck3:deleteFaithHistoryEntry',
     (_e, modPath: string, faithId: string, target: FaithHistoryTarget) =>
-      deleteFaithHistoryEntry(modPath, faithId, target)
+      undoable(`Deleted faith history entry ${faithId}`, () =>
+        deleteFaithHistoryEntry(modPath, faithId, target)
+      )
   )
   ipcMain.handle('settings:get', () => loadSettings())
+  ipcMain.handle('undo:list', () => undoSteps())
+  ipcMain.handle('undo:undo', (_e, id?: number) => undo(id))
+  ipcMain.handle('undo:forget', (_e, id: number) => forgetUndo(id))
   ipcMain.handle('settings:set', (_e, patch: Partial<AppSettings>) => saveSettings(patch))
 
   ipcMain.handle('ck3:detectPaths', () => detectPaths())
@@ -227,13 +237,15 @@ function registerIpc(): void {
   ipcMain.handle(
     'ck3:saveCharacter',
     (_e, modPath: string, file: string, originalId: string, detail: CharacterDetail) =>
-      saveCharacter(modPath, file, originalId, detail)
+      undoable(`Saved character ${originalId}`, () =>
+        saveCharacter(modPath, file, originalId, detail)
+      )
   )
   ipcMain.handle('ck3:listCharacterFiles', (_e, modPath: string) => listCharacterFiles(modPath))
   ipcMain.handle(
     'ck3:createCharacter',
     (_e, modPath: string, file: string, detail: CharacterDetail) =>
-      createCharacter(modPath, file, detail)
+      undoable(`Created character ${detail.id}`, () => createCharacter(modPath, file, detail))
   )
   ipcMain.handle('ck3:getDnaPasteInfo', (_e, modPath: string, file: string, id: string) =>
     getDnaPasteInfo(modPath, file, id)
@@ -251,7 +263,18 @@ function registerIpc(): void {
       dnaFile: string,
       modifierFile: string | null
     ) =>
-      applyRulerDesignerDna(gameDir, modPath, replacePaths, file, id, paste, dnaFile, modifierFile)
+      undoable(`Applied Ruler Designer DNA ${id}`, () =>
+        applyRulerDesignerDna(
+          gameDir,
+          modPath,
+          replacePaths,
+          file,
+          id,
+          paste,
+          dnaFile,
+          modifierFile
+        )
+      )
   )
   ipcMain.handle(
     'ck3:getDynastyData',
@@ -261,19 +284,19 @@ function registerIpc(): void {
   ipcMain.handle(
     'ck3:saveDynasty',
     (_e, modPath: string, file: string, id: string, patch: DynastyPatch) =>
-      saveDynasty(modPath, file, id, patch)
+      undoable(`Saved dynasty ${id}`, () => saveDynasty(modPath, file, id, patch))
   )
   ipcMain.handle(
     'ck3:saveHouse',
     (_e, modPath: string, file: string, id: string, patch: HousePatch) =>
-      saveHouse(modPath, file, id, patch)
+      undoable(`Saved house ${id}`, () => saveHouse(modPath, file, id, patch))
   )
   ipcMain.handle('ck3:listDynastyFiles', (_e, modPath: string) => listDynastyFiles(modPath))
   ipcMain.handle('ck3:createDynasty', (_e, modPath: string, file: string, def: NewDynasty) =>
-    createDynasty(modPath, file, def)
+    undoable(`Created dynasty ${def.id}`, () => createDynasty(modPath, file, def))
   )
   ipcMain.handle('ck3:createHouse', (_e, modPath: string, file: string, def: NewHouse) =>
-    createHouse(modPath, file, def)
+    undoable(`Created house ${def.id}`, () => createHouse(modPath, file, def))
   )
   ipcMain.handle(
     'ck3:getReligionData',
@@ -283,28 +306,28 @@ function registerIpc(): void {
   ipcMain.handle(
     'ck3:saveFaith',
     (_e, modPath: string, file: string, religionId: string, faithId: string, patch: FaithPatch) =>
-      saveFaith(modPath, file, religionId, faithId, patch)
+      undoable(`Saved faith ${faithId}`, () => saveFaith(modPath, file, religionId, faithId, patch))
   )
   ipcMain.handle(
     'ck3:saveReligion',
     (_e, modPath: string, file: string, religionId: string, patch: ReligionPatch) =>
-      saveReligion(modPath, file, religionId, patch)
+      undoable(`Saved religion ${religionId}`, () => saveReligion(modPath, file, religionId, patch))
   )
   ipcMain.handle('ck3:listReligionFiles', (_e, modPath: string) => listReligionFiles(modPath))
   ipcMain.handle('ck3:listRiteFiles', (_e, modPath: string) => listRiteFiles(modPath))
   ipcMain.handle('ck3:createRite', (_e, modPath: string, file: string, def: NewRite) =>
-    createRite(modPath, file, def)
+    undoable(`Created rite ${def.id}`, () => createRite(modPath, file, def))
   )
   ipcMain.handle(
     'ck3:saveRite',
     (_e, modPath: string, file: string, id: string, patch: RitePatch) =>
-      saveRite(modPath, file, id, patch)
+      undoable(`Saved rite ${id}`, () => saveRite(modPath, file, id, patch))
   )
   ipcMain.handle('ck3:createReligion', (_e, modPath: string, file: string, def: NewReligion) =>
-    createReligion(modPath, file, def)
+    undoable(`Created religion ${def.id}`, () => createReligion(modPath, file, def))
   )
   ipcMain.handle('ck3:createFaith', (_e, modPath: string, religionId: string, def: NewFaith) =>
-    createFaith(modPath, religionId, def)
+    undoable(`Created faith ${def.id}`, () => createFaith(modPath, religionId, def))
   )
   ipcMain.handle(
     'ck3:getTitleData',
@@ -319,11 +342,11 @@ function registerIpc(): void {
   ipcMain.handle(
     'ck3:saveTitle',
     (_e, modPath: string, file: string, id: string, patch: TitlePatch) =>
-      saveTitle(modPath, file, id, patch)
+      undoable(`Saved title ${id}`, () => saveTitle(modPath, file, id, patch))
   )
   ipcMain.handle('ck3:listTitleFiles', (_e, modPath: string) => listTitleFiles(modPath))
   ipcMain.handle('ck3:createTitle', (_e, modPath: string, def: NewTitle) =>
-    createTitle(modPath, def)
+    undoable(`Created title ${def.id}`, () => createTitle(modPath, def))
   )
   ipcMain.handle(
     'ck3:getTitleHistory',
@@ -343,17 +366,24 @@ function registerIpc(): void {
       titleBlock: number,
       index: number,
       patch: TitleHistoryEntryPatch
-    ) => saveTitleHistoryEntry(modPath, file, titleId, titleBlock, index, patch)
+    ) =>
+      undoable(`Saved title history entry ${titleId}`, () =>
+        saveTitleHistoryEntry(modPath, file, titleId, titleBlock, index, patch)
+      )
   )
   ipcMain.handle(
     'ck3:addTitleHistoryEntry',
     (_e, modPath: string, file: string, titleId: string, patch: TitleHistoryEntryPatch) =>
-      addTitleHistoryEntry(modPath, file, titleId, patch)
+      undoable(`Added title history entry ${titleId}`, () =>
+        addTitleHistoryEntry(modPath, file, titleId, patch)
+      )
   )
   ipcMain.handle(
     'ck3:deleteTitleHistoryEntry',
     (_e, modPath: string, file: string, titleId: string, titleBlock: number, index: number) =>
-      deleteTitleHistoryEntry(modPath, file, titleId, titleBlock, index)
+      undoable(`Deleted title history entry ${titleId}`, () =>
+        deleteTitleHistoryEntry(modPath, file, titleId, titleBlock, index)
+      )
   )
   ipcMain.handle(
     'ck3:getFaithIcons',
@@ -380,11 +410,14 @@ function registerIpc(): void {
       file: string,
       id: string,
       patch: CulturePatch
-    ) => saveCulture(gameDir, modPath, replacePaths, file, id, patch)
+    ) =>
+      undoable(`Saved culture ${id}`, () =>
+        saveCulture(gameDir, modPath, replacePaths, file, id, patch)
+      )
   )
   ipcMain.handle('ck3:listCultureFiles', (_e, modPath: string) => listCultureFiles(modPath))
   ipcMain.handle('ck3:createCulture', (_e, modPath: string, file: string, def: NewCulture) =>
-    createCulture(modPath, file, def)
+    undoable(`Created culture ${def.id}`, () => createCulture(modPath, file, def))
   )
   ipcMain.handle(
     'ck3:getTraitIcons',

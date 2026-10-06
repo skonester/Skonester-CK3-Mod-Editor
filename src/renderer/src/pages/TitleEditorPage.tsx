@@ -71,7 +71,8 @@ function listStateFor(modFile: string): TitleListState {
 }
 
 export default function TitleEditorPage(): React.JSX.Element {
-  const { settings, selectedMod } = useApp()
+  // (dataRevision: files of the mod changed under the editor — an undo, a map edit: read again)
+  const { settings, selectedMod, dataRevision } = useApp()
   const { isMobile, setOpen, setOpenMobile } = useSidebar()
   const navigate = useNavigate()
   const modKey = selectedMod?.file ?? ''
@@ -182,7 +183,7 @@ export default function TitleEditorPage(): React.JSX.Element {
   useEffect(() => {
     void reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modPath])
+  }, [modPath, dataRevision])
 
   // Switching mods invalidates the open title, but only on a real change: on
   // the first render the URL may already carry a deep link that must survive.
@@ -198,7 +199,7 @@ export default function TitleEditorPage(): React.JSX.Element {
       closeRow()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modPath])
+  }, [modPath, dataRevision])
 
   /**
    * The selected title's full parse and history, loaded per selection. The
@@ -226,7 +227,7 @@ export default function TitleEditorPage(): React.JSX.Element {
     setHistory(null)
     if (search.id && modPath) void loadSelected(search.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search.id, modPath])
+  }, [search.id, modPath, dataRevision])
 
   const selected = search.id && data ? findTitle(data.titles, search.id) : null
 

@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readdirSync, readFileSync } from 'fs'
+import { writeModText } from './modWrite'
 import { basename, join } from 'path'
 import { makeEditor, setBlockList, setRepeatedScalar, setScalar } from '@shared/lineEditor'
 import { KEY_CHARS, appendBlock, isTxtFileName } from './scriptFile'
@@ -679,7 +680,7 @@ export function saveFaith(
       if (patch.eminentHolySites?.some((s) => patch.holySites.some((h) => norm(s) === norm(h)))) {
         return { ok: false, error: 'A holy site cannot be both ordinary and eminent' }
       }
-      writeFileSync(modernPath, spliceBody(text, faith, saveModernFaithBody(body, patch)), 'utf-8')
+      writeModText(modernPath, spliceBody(text, faith, saveModernFaithBody(body, patch)))
       return { ok: true }
     }
     const path = join(modPath, ...RELIGION_DIR.split('/'), file)
@@ -701,7 +702,7 @@ export function saveFaith(
       text.slice(0, start) +
       applyFaithOptions(saveFaithBody(body, patch, parseColor(body, new Map())), patch.options) +
       text.slice(end)
-    writeFileSync(path, updated, 'utf-8')
+    writeModText(path, updated)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -730,10 +731,9 @@ export function saveReligion(
     setScalar(ed, ['piety_icon_group'], patch.pietyIconGroup, { quoteNew: true, ignoreCase: true })
     const outer = details ? makeEditor(spliceBody(body, details, ed.lines.join('\n'))) : ed
     setRepeatedScalar(outer, 'doctrine', patch.doctrines, { ignoreCase: true })
-    writeFileSync(
+    writeModText(
       path,
-      spliceBody(text, religion, applyReligionOptions(outer.lines.join('\n'), patch.options)),
-      'utf-8'
+      spliceBody(text, religion, applyReligionOptions(outer.lines.join('\n'), patch.options))
     )
     return { ok: true }
   } catch (err) {
@@ -925,10 +925,9 @@ export function saveRite(modPath: string, file: string, id: string, patch: RiteP
     }
     setListIfChanged(ed, 'doctrines', patch.doctrines)
     setListIfChanged(ed, 'tenets', patch.tenets)
-    writeFileSync(
+    writeModText(
       path,
-      spliceBody(text, block, applyRiteOptions(ed.lines.join('\n'), patch.options)),
-      'utf-8'
+      spliceBody(text, block, applyRiteOptions(ed.lines.join('\n'), patch.options))
     )
     return { ok: true }
   } catch (err) {
@@ -1088,7 +1087,7 @@ export function createFaith(modPath: string, religionId: string, def: NewFaith):
       const sep = content === '' ? eol : eol + eol
       newBody = content + sep + faithsLines.join(eol) + eol + closingIndent
     }
-    writeFileSync(path, spliceBody(text, religion, newBody), 'utf-8')
+    writeModText(path, spliceBody(text, religion, newBody))
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }

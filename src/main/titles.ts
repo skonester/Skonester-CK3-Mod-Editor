@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
+import { writeModText } from './modWrite'
 import { basename, join } from 'path'
 import { DATED_BLOCK_KEY } from './titleHistory'
 import { makeEditor, setBlockBody, setScalar, splitComment } from '@shared/lineEditor'
@@ -574,7 +575,7 @@ export function saveTitle(
 
     const updated =
       text.slice(0, node.absBodyStart) + ed.lines.join('\n') + text.slice(node.absBodyEnd)
-    writeFileSync(path, updated, 'utf-8')
+    writeModText(path, updated)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -732,10 +733,9 @@ export function createTitle(modPath: string, def: NewTitle): SaveResult {
       : parentIndent
     const sep = content === '' ? eol : eol + eol
     const newInner = content + sep + block.join(eol) + eol + closingIndent
-    writeFileSync(
+    writeModText(
       path,
-      text.slice(0, node.absBodyStart) + newInner + text.slice(node.absBodyEnd),
-      'utf-8'
+      text.slice(0, node.absBodyStart) + newInner + text.slice(node.absBodyEnd)
     )
     return { ok: true }
   } catch (err) {

@@ -1,4 +1,9 @@
-import type { DefOrigin, GraphicsSettings, ModTouch } from '../crusaderpope/shared/api'
+import type {
+  DefOrigin,
+  GraphicsSettings,
+  ModListEntry,
+  ModTouch
+} from '../crusaderpope/shared/api'
 
 export interface AppSettings {
   /** Path to the CK3 `game` data directory (…\Crusader Kings III\game) */
@@ -37,6 +42,16 @@ export interface AppSettings {
    * per-value overrides — CrusaderPope's graphics settings. Absent = high.
    */
   graphics?: GraphicsSettings
+  /**
+   * The mod manager's own settings (CrusaderPope's): the CK3 user folder when
+   * not the mod folder's parent, the mod list the game index loads ('none' or
+   * absent: just the selected mod), and the lists the app keeps itself.
+   */
+  modManager?: {
+    userDir?: string
+    modList?: string
+    customModLists?: { id: string; name: string; mods: ModListEntry[] }[]
+  }
 }
 
 /** The editors that remember favorites, recents and unsaved drafts of their rows. */
@@ -1147,7 +1162,22 @@ export interface DirValidation {
 // over the game plus the selected mod in a worker thread (main/gameIndex.ts)
 // ---------------------------------------------------------------------------
 
-export type { DefOrigin, GraphicsSettings, IndexStatus, ModTouch } from '../crusaderpope/shared/api'
+export type {
+  DefOrigin,
+  GraphicsSettings,
+  IndexStatus,
+  ModTouch,
+  UndoResult
+} from '../crusaderpope/shared/api'
+
+/** One undoable change of the selected mod (CrusaderPope's undo journal) */
+export interface UndoStep {
+  id: number
+  label: string
+  kind: string
+  /** ms since 1970 */
+  at: number
+}
 
 /**
  * The index's type ids for the entities the editors edit. Any other index type

@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
+import { writeModText } from './modWrite'
 import { join, relative } from 'path'
 import type {
   FaithHistoryEntry,
@@ -177,14 +178,13 @@ export function saveFaithHistoryEntry(
             eolScript(patch.script, text),
             text.includes('\r\n') ? '\r\n' : '\n'
           )
-    writeFileSync(
+    writeModText(
       path,
       text.slice(0, start) +
         patch.date.trim() +
         text.slice(start + date.key.length, bodyStart) +
         script +
-        text.slice(bodyEnd),
-      'utf-8'
+        text.slice(bodyEnd)
     )
     return { ok: true }
   } catch (err) {
@@ -234,13 +234,12 @@ export function deleteFaithHistoryEntry(
     let to = date.end
     if (body[to] === '\r') to++
     if (body[to] === '\n') to++
-    writeFileSync(
+    writeModText(
       path,
       text.slice(0, faith.bodyStart) +
         body.slice(0, from) +
         body.slice(to) +
-        text.slice(faith.bodyEnd),
-      'utf-8'
+        text.slice(faith.bodyEnd)
     )
     return { ok: true }
   } catch (err) {

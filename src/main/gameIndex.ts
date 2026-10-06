@@ -1,12 +1,15 @@
 import { app, BrowserWindow } from 'electron'
 import { watch, type FSWatcher } from 'fs'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { Worker } from 'worker_threads'
 import { initImages, refreshImages } from '../crusaderpope/main/imageService'
 import { logShader } from '../crusaderpope/main/shaderLog'
 import type { ModInfo as IndexMod, ShaderLogEntry } from '../crusaderpope/shared/api'
 import type { EntityReferences, IndexStatus, ModInfo } from '@shared/types'
 import type { BuildRequest } from './gameIndexWorker'
+import { modsOfList, readModsState } from '../crusaderpope/main/mods/manager'
+import { cpSettings, modId, setIndexHooks } from './modsHost'
+import { loadSettings } from './settings'
 
 /**
  * Main-process side of the game index (gameIndexWorker.ts): one index at a
@@ -23,7 +26,7 @@ declare const __GAME_INDEX_CODE__: string
 let worker: Worker | null = null
 let status: IndexStatus = { state: 'idle' }
 /** What the current index was built from; null = none (a crash or a disable clears it) */
-let built: { key: string; gameDir: string; mod: ModInfo | null } | null = null
+let built: { key: string; gameDir: string; mod: ModInfo | null; mods: IndexMod[] } | null = null
 let reqId = 0
 const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
 
@@ -82,10 +85,10 @@ function call<T>(method: string, ...params: unknown[]): Promise<T> {
   })
 }
 
-/** The selected mod as the index layers it; its `.mod` file name is its id (ModTouch.mods) */
+/** The selected mod as the index layers it; its id is CrusaderPope's, `mod/<.mod file>` (ModTouch.mods) */
 function indexMod(mod: ModInfo): IndexMod {
   return {
-    id: mod.file,
+    id: modId(mod.file),
     name: mod.name,
     tags: mod.tags,
     root: mod.path ?? undefined,
@@ -97,16 +100,38 @@ function indexMod(mod: ModInfo): IndexMod {
 }
 
 /**
- * Builds the index for the game plus `mod` unless it is already built (or
- * building) for exactly that — or `force`d, to retry after an error. A null
- * `gameDir` — or `enabled: false` — stops the worker and frees its memory.
+ * What the index layers over the game: the selected mod — or, when a mod list
+ * is chosen on the Mods page, that list's enabled mods in load order, with the
+ * selected mod last if the list doesn't load it (its editors' files show).
  */
-export function ensureGameIndex(
+async function layeredMods(gameDir: string, mod: ModInfo | null): Promise<IndexMod[]> {
+  const own = mod ? [indexMod(mod)] : []
+  const s = loadSettings()
+  const ref = s.modManager?.modList
+  if (!ref || ref === 'none') return own
+  try {
+    const state = await readModsState(cpSettings(s), gameDir, app.getPath('documents'))
+    const list = modsOfList(state, ref)
+    const same = (a?: string, b?: string | null): boolean =>
+      !!a && !!b && resolve(a).toLowerCase() === resolve(b).toLowerCase()
+    return mod && !list.some((m) => same(m.root, mod.path)) ? [...list, ...own] : list
+  } catch {
+    return own
+  }
+}
+
+/**
+ * Builds the index for the game plus the selected mod (or the chosen mod
+ * list) unless it is already built (or building) for exactly that — or
+ * `force`d, to retry after an error. A null `gameDir` — or `enabled: false` —
+ * stops the worker and frees its memory.
+ */
+export async function ensureGameIndex(
   gameDir: string | null,
   mod: ModInfo | null,
   enabled: boolean,
   force = false
-): IndexStatus {
+): Promise<IndexStatus> {
   if (!gameDir || !enabled) {
     void worker?.terminate()
     worker = null
@@ -115,13 +140,14 @@ export function ensureGameIndex(
     setStatus({ state: 'idle' })
     return status
   }
-  const key = JSON.stringify([gameDir, mod?.file, mod?.path, mod?.replacePaths])
+  const mods = await layeredMods(gameDir, mod)
+  const key = JSON.stringify([gameDir, mods.map((m) => [m.id, m.root ?? m.archive, m.replacePaths])])
   if (built?.key === key && !force) return status
-  built = { key, gameDir, mod }
+  built = { key, gameDir, mod, mods }
   worker ??= startWorker()
   const req: BuildRequest = {
     gameDir,
-    mod: mod ? indexMod(mod) : null,
+    mods,
     language: 'english',
     cache: {
       file: join(app.getPath('userData'), 'index-cache', 'index.bin'),
@@ -132,7 +158,7 @@ export function ensureGameIndex(
   // Changes seen before the build read the files are part of it
   changed.clear()
   void call('build', req).catch(() => {})
-  initImages(gameDir, undefined, req.mod ? [req.mod] : [])
+  initImages(gameDir, undefined, mods)
   watchMod(mod?.path && mod.pathExists ? mod.path : null)
   return status
 }
@@ -145,7 +171,7 @@ export const gameIndexStatus = (): IndexStatus => status
  */
 export function gameIndexLayering(): { gameDir: string; mod: ModInfo | null; mods: IndexMod[] } | null {
   if (!built) return null
-  return { gameDir: built.gameDir, mod: built.mod, mods: built.mod ? [indexMod(built.mod)] : [] }
+  return { gameDir: built.gameDir, mod: built.mod, mods: built.mods }
 }
 
 /**
@@ -170,6 +196,18 @@ export function callGameIndex<T>(method: string, ...params: unknown[]): Promise<
   if (status.state !== 'ready') return Promise.reject(new Error('Index not ready'))
   return call<T>(method, ...params)
 }
+
+// CrusaderPope's mod manager reaches the index through these (modsHost.ts)
+setIndexHooks({
+  reindex: () => {
+    if (built) void ensureGameIndex(built.gameDir, built.mod, true, true)
+  },
+  query: (method, ...params) => callGameIndex(method, ...params),
+  refreshFiles: async (files) => {
+    for (const f of files) changed.add(f)
+    await flushChanges()
+  }
+})
 
 // ---------------------------------------------------------------------------
 // Taking in changes to the mod folder
@@ -218,7 +256,7 @@ async function flushChanges(): Promise<void> {
     // Too much changed to take in piecemeal (or the layering itself changed): build afresh
     if (r.fallback && built) {
       const { gameDir, mod } = built
-      ensureGameIndex(gameDir, mod, true, true)
+      void ensureGameIndex(gameDir, mod, true, true)
     }
   } catch {
     // The worker went away; its error handler reports that

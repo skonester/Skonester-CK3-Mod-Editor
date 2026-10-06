@@ -50,8 +50,8 @@ import type {
 
 export interface BuildRequest {
   gameDir: string
-  /** The selected mod, as the index's ModInfo; null indexes the game alone */
-  mod: IndexMod | null
+  /** The mods over the game in load order (later wins), as the index's ModInfo */
+  mods: IndexMod[]
   language: string
   /** The index cache: one file, keyed to the indexer's code version */
   cache: { file: string; code: string }
@@ -230,7 +230,7 @@ function build(req: BuildRequest): void {
   history = portraits = characters = models = mapData = shaders = stories = null
   rasterJob = null
   cache = req.cache
-  buildMods = req.mod ? [req.mod] : []
+  buildMods = req.mods
   if (recacheTimer) clearTimeout(recacheTimer)
   recacheTimer = null
 

@@ -298,7 +298,8 @@ const lineageRef = (
 ): EntryRef => ({ id, name, scope: kind })
 
 export default function DynastyEditorPage(): React.JSX.Element {
-  const { settings, selectedMod } = useApp()
+  // (dataRevision: files of the mod changed under the editor — an undo, a map edit: read again)
+  const { settings, selectedMod, dataRevision } = useApp()
   const { isMobile, setOpen, setOpenMobile } = useSidebar()
   const navigate = useNavigate()
   const [data, setData] = useState<DynastyData | null>(null)
@@ -380,7 +381,7 @@ export default function DynastyEditorPage(): React.JSX.Element {
   useEffect(() => {
     void reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modPath])
+  }, [modPath, dataRevision])
 
   // Switching mods invalidates the open row, but only on a real change: on the
   // first render the URL may already carry a deep link that must survive.
@@ -397,7 +398,7 @@ export default function DynastyEditorPage(): React.JSX.Element {
     }
     window.ck3tools.getReferenceData(gameDir, modPath, replacePaths).then(setRefData)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modPath])
+  }, [modPath, dataRevision])
 
   /**
    * Display name for a culture id (from the reference data) or a parent

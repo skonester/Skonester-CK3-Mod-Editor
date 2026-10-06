@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import type { ReactNode } from 'react'
 import { useModFonts } from './useModFonts'
 import { setGraphics } from '@crusaderpope/renderer/src/graphics'
-import type { AppSettings, IndexStatus, ModFonts, ModInfo } from '@shared/types'
+import type { AppSettings, IndexStatus, ModFonts, ModInfo, UndoStep } from '@shared/types'
 
 interface AppContextValue {
   settings: AppSettings | null
@@ -16,6 +16,13 @@ interface AppContextValue {
   reindex: () => void
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>
   refreshMods: () => Promise<void>
+  /**
+   * Bumped when files of the selected mod change under the editors — an undo,
+   * an edit from the map, the Barbershop: the editors read their data again.
+   */
+  dataRevision: number
+  /** The selected mod's undoable changes, newest first */
+  undoSteps: UndoStep[]
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -24,6 +31,21 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [mods, setMods] = useState<ModInfo[]>([])
   const [indexStatus, setIndexStatus] = useState<IndexStatus>({ state: 'idle' })
+  const [dataRevision, setDataRevision] = useState(0)
+  const [undoSteps, setUndoSteps] = useState<UndoStep[]>([])
+
+  // Settings the main process changed (the Mods page set the active mod, a list …),
+  // files changed under the editors, and the undo history
+  useEffect(() => {
+    const offSettings = window.ck3tools.onSettingsChanged(setSettings)
+    const offFiles = window.ck3tools.onModFilesChanged(() => setDataRevision((n) => n + 1))
+    const offUndo = window.ck3tools.onUndoChanged(setUndoSteps)
+    return () => {
+      offSettings()
+      offFiles()
+      offUndo()
+    }
+  }, [])
 
   // Initial load: read settings, auto-detect any missing paths once
   useEffect(() => {
@@ -60,6 +82,10 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
   }, [settings?.modDir])
 
   const selectedMod = mods.find((m) => m.file === settings?.selectedModFile) ?? null
+  // Another mod, another history
+  useEffect(() => {
+    void window.ck3tools.listUndo().then(setUndoSteps)
+  }, [settings?.selectedModFile])
   // The 3D views read the graphics settings when they open
   setGraphics(settings?.graphics)
 
@@ -79,9 +105,11 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
   // it already has, so a fresh mod list with the same mod costs nothing
   const indexEnabled = settings !== null && settings.gameIndex !== false
   const gameDir = settings?.gameDir ?? null
-  const indexedMod = JSON.stringify(
-    selectedMod && [selectedMod.file, selectedMod.path, selectedMod.replacePaths]
-  )
+  // (the mod list the index loads is part of it — chosen on the Mods page)
+  const indexedMod = JSON.stringify([
+    selectedMod && [selectedMod.file, selectedMod.path, selectedMod.replacePaths],
+    settings?.modManager?.modList ?? null
+  ])
   // Wait for the mod list first, or startup would index the game alone and
   // then all over again with the mod
   const modsListed = settings !== null && modsFrom === (settings.modDir ?? null)
@@ -116,7 +144,9 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
         indexStatus,
         reindex,
         updateSettings,
-        refreshMods
+        refreshMods,
+        dataRevision,
+        undoSteps
       }}
     >
       {children}

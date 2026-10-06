@@ -41,7 +41,9 @@ import type {
   TitleDetail,
   TitleHistoryEntry,
   TitleHistoryEntryPatch,
-  TitlePatch
+  TitlePatch,
+  UndoResult,
+  UndoStep
 } from '@shared/types'
 import type {
   IndexStatus as CpIndexStatus,
@@ -84,6 +86,24 @@ const api = {
   ): Promise<SaveResult> =>
     ipcRenderer.invoke('ck3:deleteFaithHistoryEntry', modPath, faithId, target),
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
+  onSettingsChanged: (listener: (s: AppSettings) => void): (() => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, s: AppSettings): void => listener(s)
+    ipcRenderer.on('settings:changed', handler)
+    return () => ipcRenderer.removeListener('settings:changed', handler)
+  },
+  onModFilesChanged: (listener: (files: string[]) => void): (() => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, files: string[]): void => listener(files)
+    ipcRenderer.on('mod:filesChanged', handler)
+    return () => ipcRenderer.removeListener('mod:filesChanged', handler)
+  },
+  listUndo: (): Promise<UndoStep[]> => ipcRenderer.invoke('undo:list'),
+  undo: (id?: number): Promise<UndoResult | null> => ipcRenderer.invoke('undo:undo', id),
+  forgetUndo: (id: number): Promise<boolean> => ipcRenderer.invoke('undo:forget', id),
+  onUndoChanged: (listener: (steps: UndoStep[]) => void): (() => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, steps: UndoStep[]): void => listener(steps)
+    ipcRenderer.on('undo:changed', handler)
+    return () => ipcRenderer.removeListener('undo:changed', handler)
+  },
   setSettings: (patch: Partial<AppSettings>): Promise<AppSettings> =>
     ipcRenderer.invoke('settings:set', patch),
 

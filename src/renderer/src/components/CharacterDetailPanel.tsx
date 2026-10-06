@@ -30,6 +30,7 @@ import {
 import { cn } from '@/lib/utils'
 import { formatCalendarDate, isValidCK3Date } from '@/lib/ck3Date'
 import { normalizeCharacterDraft as withDefaults } from '@/lib/characterDraft'
+import { useApp } from '../AppContext'
 
 // three.js and the game-shader code load with the first portrait shown
 const CharacterPortrait = lazy(() => import('./CharacterPortrait'))
@@ -91,6 +92,8 @@ export default function CharacterDetailPanel({
   onSaved,
   onClose
 }: Props): React.JSX.Element {
+  // Files changed under the panel (an undo, the Barbershop): read the character again
+  const { dataRevision } = useApp()
   const [original, setOriginal] = useState<CharacterDetail | null>(null)
   const [draft, setDraft] = useState<CharacterDetail | null>(null)
   const [saving, setSaving] = useState(false)
@@ -134,7 +137,7 @@ export default function CharacterDetailPanel({
     return flushPersist
     // storedDraft is read once per open on purpose: our own persists update it
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modPath, file, id])
+  }, [modPath, file, id, dataRevision])
 
   // Computed before the early return below so the hook order stays stable
   const dirty =
