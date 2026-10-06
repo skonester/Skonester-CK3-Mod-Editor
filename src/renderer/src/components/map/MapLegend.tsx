@@ -11,7 +11,6 @@ import { Swatch } from '../Swatch'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 
 /** Rows drawn at most (the filter finds the rest) */
 const ROWS = 150
@@ -146,7 +145,7 @@ export default function MapLegend({
           />
         </div>
       )}
-      <ScrollArea className="min-h-0 flex-1 px-1.5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-1.5">
         {rows.slice(0, ROWS).map((g) => (
           <Button
             key={g}
@@ -169,7 +168,7 @@ export default function MapLegend({
           </p>
         )}
         {rows.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">Nothing by that name</p>}
-      </ScrollArea>
+      </div>
     </Card>
   )
 }

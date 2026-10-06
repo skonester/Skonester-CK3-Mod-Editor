@@ -15,6 +15,7 @@ import ReligionEditorPage from './pages/ReligionEditorPage'
 import RiteEditorPage from './pages/RiteEditorPage'
 import TitleEditorPage from './pages/TitleEditorPage'
 import MapPage from './pages/MapPage'
+import ModelsPage from './pages/ModelsPage'
 
 /**
  * Deep-link target for the character editor (e.g. from a family-tree node).
@@ -238,6 +239,22 @@ const mapRoute = createRoute({
   })
 })
 
+/** Deep-link target for the model browser: the folder listed and the model file shown */
+export interface ModelsSearch {
+  folder?: string
+  path?: string
+}
+
+const modelsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/models',
+  component: ModelsPage,
+  validateSearch: (search: Record<string, unknown>): ModelsSearch => ({
+    folder: typeof search.folder === 'string' ? search.folder : undefined,
+    path: typeof search.path === 'string' ? search.path : undefined
+  })
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   settingsRoute,
@@ -248,7 +265,8 @@ const routeTree = rootRoute.addChildren([
   ritesRoute,
   religionsRoute,
   culturesRoute,
-  mapRoute
+  mapRoute,
+  modelsRoute
 ])
 
 // Hash history keeps routing working when the packaged app loads index.html from file://

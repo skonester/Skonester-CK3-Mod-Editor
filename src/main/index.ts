@@ -58,6 +58,7 @@ import { getSkillIcons } from './skillIcons'
 import { getCoatsOfArms } from './coatOfArms'
 import { detectEditors, openInEditor } from './editor'
 import { callGameIndex, ensureGameIndex, gameIndexStatus, getReferences } from './gameIndex'
+import { registerBlenderIpc } from './blender'
 import {
   handleImageProtocol,
   imageInfo,
@@ -447,6 +448,7 @@ function registerIpc(): void {
     )
   }
   ipcMain.handle('image:info', (_e, rel: string) => imageInfo(rel))
+  registerBlenderIpc()
   ipcMain.handle('log:shader', (_e, entry: ShaderLogEntry) => logShader(entry))
   ipcMain.handle(
     'index:references',

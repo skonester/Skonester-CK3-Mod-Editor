@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Outlet, useLocation } from '@tanstack/react-router'
 import {
   BookOpen,
+  Box,
   Castle,
   ChevronsUpDown,
   Church,
@@ -56,8 +57,13 @@ const TOOLS = [
   { to: '/faiths', label: 'Faith Editor', icon: Church },
   { to: '/rites', label: 'Rite Editor', icon: Church },
   { to: '/religions', label: 'Religion Editor', icon: BookOpen },
-  { to: '/cultures', label: 'Culture Editor', icon: Landmark },
-  { to: '/map', label: 'Map', icon: MapIcon }
+  { to: '/cultures', label: 'Culture Editor', icon: Landmark }
+] as const
+
+/** Views of the whole game plus the mod, from the game index (ported from CrusaderPope) */
+const EXPLORE = [
+  { to: '/map', label: 'Map', icon: MapIcon },
+  { to: '/models', label: '3D Models', icon: Box }
 ] as const
 
 /**
@@ -69,7 +75,9 @@ function IndexStatusItem(): React.JSX.Element | null {
   if (indexStatus.state !== 'indexing' && indexStatus.state !== 'error') return null
   const indexing = indexStatus.state === 'indexing'
   const pct =
-    indexing && indexStatus.total ? Math.round((100 * (indexStatus.done ?? 0)) / indexStatus.total) : null
+    indexing && indexStatus.total
+      ? Math.round((100 * (indexStatus.done ?? 0)) / indexStatus.total)
+      : null
   const label = indexing
     ? `Indexing the game — ${indexStatus.phase ?? 'starting'}${pct !== null ? ` ${pct}%` : ''}`
     : 'Game index failed'
@@ -153,7 +161,8 @@ export default function RootLayout(): React.JSX.Element {
                     <DialogHeader>
                       <DialogTitle>Active mod</DialogTitle>
                       <DialogDescription>
-                        The tools will read from the game directory and read/write to the selected mod.
+                        The tools will read from the game directory and read/write to the selected
+                        mod.
                       </DialogDescription>
                     </DialogHeader>
                     <ModPicker plain onSelect={() => setModDialogOpen(false)} />
@@ -168,32 +177,46 @@ export default function RootLayout(): React.JSX.Element {
             </SidebarMenu>
           </SidebarHeader>
           <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel>Editors</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {TOOLS.map((tool) => (
-                    <SidebarMenuItem key={tool.to}>
-                      {configured ? (
-                        <SidebarMenuButton asChild isActive={pathname === tool.to} tooltip={tool.label}>
-                          {/* search={{}} so a tool link always lands on its list, never
+            {(
+              [
+                ['Editors', TOOLS],
+                ['Explore', EXPLORE]
+              ] as const
+            ).map(([group, tools]) => (
+              <SidebarGroup key={group}>
+                <SidebarGroupLabel>{group}</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {tools.map((tool) => (
+                      <SidebarMenuItem key={tool.to}>
+                        {configured ? (
+                          <SidebarMenuButton
+                            asChild
+                            isActive={pathname === tool.to}
+                            tooltip={tool.label}
+                          >
+                            {/* search={{}} so a tool link always lands on its list, never
                               back into whatever row the search params had open */}
-                          <Link to={tool.to} search={{}}>
+                            <Link to={tool.to} search={{}}>
+                              <tool.icon />
+                              <span>{tool.label}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        ) : (
+                          <SidebarMenuButton
+                            disabled
+                            tooltip="Configure directories in Settings first"
+                          >
                             <tool.icon />
                             <span>{tool.label}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      ) : (
-                        <SidebarMenuButton disabled tooltip="Configure directories in Settings first">
-                          <tool.icon />
-                          <span>{tool.label}</span>
-                        </SidebarMenuButton>
-                      )}
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+                          </SidebarMenuButton>
+                        )}
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ))}
           </SidebarContent>
           <SidebarFooter>
             <SidebarMenu>

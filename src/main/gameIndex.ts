@@ -140,6 +140,15 @@ export function ensureGameIndex(
 export const gameIndexStatus = (): IndexStatus => status
 
 /**
+ * What the current index layers: the game folder and the selected mod — as
+ * the app's ModInfo and as the index's (CrusaderPope's) — or null when none.
+ */
+export function gameIndexLayering(): { gameDir: string; mod: ModInfo | null; mods: IndexMod[] } | null {
+  if (!built) return null
+  return { gameDir: built.gameDir, mod: built.mod, mods: built.mod ? [indexMod(built.mod)] : [] }
+}
+
+/**
  * References of one entry (see the worker's `references`), or null when the
  * index isn't ready or doesn't know the entry.
  */

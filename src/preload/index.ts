@@ -388,7 +388,11 @@ const crusaderPopeApi = {
   mapTerrain: () => ipcRenderer.invoke('index:mapTerrain'),
   mapOverlays: () => ipcRenderer.invoke('index:mapOverlays'),
   mapCharacters: (q, date) => ipcRenderer.invoke('index:mapCharacters', q, date),
-  searchCharacters: (q, limit) => ipcRenderer.invoke('index:searchCharacters', q, limit)
+  searchCharacters: (q, limit) => ipcRenderer.invoke('index:searchCharacters', q, limit),
+  exportModel: (path, pdxmesh) => ipcRenderer.invoke('model:export', path, pdxmesh),
+  importModelPlan: (path, pdxmesh) => ipcRenderer.invoke('model:importPlan', path, pdxmesh),
+  importModel: (path, pdxmesh) => ipcRenderer.invoke('model:import', path, pdxmesh),
+  revealFile: (absPath) => ipcRenderer.invoke('shell:revealFile', absPath)
 } satisfies Partial<CrusaderPopeApi>
 
 contextBridge.exposeInMainWorld('api', crusaderPopeApi)
