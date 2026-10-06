@@ -4,7 +4,7 @@
   "description": "A suite of editing tools for Crusader Kings III",
   "main": "out/main/index.js",
   "author": "Kevin Sherman",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "GPL-3.0-only",
   "private": true,
   "repository": {
     "type": "git",
