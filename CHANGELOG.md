@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.2.4 — CrusaderPope
+
+Brings in most of [CrusaderPope](https://github.com/xwcg/CrusaderPope) by xwcg. The app is now licensed under the GNU GPL v3.0 with the Commons Clause (see LICENSE and NOTICE.md); earlier releases keep the MIT license.
+
+- Index the game and the selected mod in the background, and show a References section in every editor: where the entry is defined, whether the mod adds or overrides it, and everything that uses it or that it uses — opening in its editor where there is one.
+- Read any entry as plain language: events as a story (where they come from, texts, conditions, options and what they lead to), on_actions as what they fire, everything else as a summary card.
+- Show a character's 3D portrait, built from their DNA and drawn with the game's own shaders, and change their looks gene by gene in the Barbershop, saved into the mod.
+- Add a Map page: 2D and 3D, realms, de jure titles, cultures, faiths, terrain and more at any history date, with Show on map from titles, cultures, faiths and religions. Change a province's culture, faith, holding, development, holder, liege or colour from the map.
+- Add a 3D Models page: every model of the game and the mod drawn with the game's shaders, with a Blender round trip (export as glTF, import back into the mod).
+- Add a Mods page: launcher playsets, the game's mod list and the app's own lists — reorder, enable, write back (backed up first) and load into the game index — plus new mods, packing and unpacking.
+- Undo every change the app makes to the mod (saves, map edits, Barbershop, Blender imports), kept across restarts.
+- Add 3D graphics quality to Settings, and a switch to turn the game index off (it takes about 3 GB of memory).
+
 ## v0.2.3 — Scripted characters
 
 - Show everything a mod does to a character in their editor, not just their history record: script run on them (`character:<id> = { … }` in scripted effects, on_actions, events), titles they hold, bookmarks, vassal/employer setup, and the parts of their record the form doesn't cover. Each statement shows how the game reaches it and under what conditions, and is editable in place — traits, perks, flags, sexuality and amounts as fields, everything else as script.
