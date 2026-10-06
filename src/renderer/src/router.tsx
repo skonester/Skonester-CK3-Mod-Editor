@@ -16,6 +16,7 @@ import RiteEditorPage from './pages/RiteEditorPage'
 import TitleEditorPage from './pages/TitleEditorPage'
 import MapPage from './pages/MapPage'
 import ModelsPage from './pages/ModelsPage'
+import ModsPage from './pages/ModsPage'
 
 /**
  * Deep-link target for the character editor (e.g. from a family-tree node).
@@ -255,6 +256,12 @@ const modelsRoute = createRoute({
   })
 })
 
+const modsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/mods',
+  component: ModsPage
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   settingsRoute,
@@ -266,7 +273,8 @@ const routeTree = rootRoute.addChildren([
   religionsRoute,
   culturesRoute,
   mapRoute,
-  modelsRoute
+  modelsRoute,
+  modsRoute
 ])
 
 // Hash history keeps routing working when the packaged app loads index.html from file://

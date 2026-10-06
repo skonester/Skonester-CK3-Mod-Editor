@@ -43,7 +43,11 @@ import type {
   TitleHistoryEntryPatch,
   TitlePatch,
   UndoResult,
-  UndoStep
+  UndoStep,
+  ModListEntry,
+  ModsState,
+  NewModRequest,
+  WriteListResult
 } from '@shared/types'
 import type {
   IndexStatus as CpIndexStatus,
@@ -97,6 +101,24 @@ const api = {
     return () => ipcRenderer.removeListener('mod:filesChanged', handler)
   },
   listUndo: (): Promise<UndoStep[]> => ipcRenderer.invoke('undo:list'),
+  modsState: (): Promise<ModsState> => ipcRenderer.invoke('mods:state'),
+  selectModList: (ref: string): Promise<ModsState> => ipcRenderer.invoke('mods:select', ref),
+  saveModList: (list: { ref?: string; name: string; mods: ModListEntry[] }): Promise<ModsState> =>
+    ipcRenderer.invoke('mods:saveList', list),
+  deleteModList: (ref: string): Promise<ModsState> => ipcRenderer.invoke('mods:deleteList', ref),
+  writeModList: (
+    ref: string,
+    target: 'launcher' | 'game',
+    mods: ModListEntry[],
+    opts?: { launcherClosed?: boolean }
+  ): Promise<WriteListResult> => ipcRenderer.invoke('mods:writeList', ref, target, mods, opts),
+  setActiveMod: (id: string | null): Promise<ModsState> => ipcRenderer.invoke('mods:setActive', id),
+  createMod: (req: NewModRequest): Promise<ModsState> => ipcRenderer.invoke('mods:create', req),
+  packMod: (id: string, overwrite?: boolean): Promise<{ file: string; files: number; exists?: boolean }> =>
+    ipcRenderer.invoke('mods:pack', id, overwrite),
+  unpackMod: (id: string): Promise<{ dir: string; files: number }> => ipcRenderer.invoke('mods:unpack', id),
+  openModFolder: (id: string): Promise<void> => ipcRenderer.invoke('mods:openFolder', id),
+  modThumbnail: (id: string): Promise<string | null> => ipcRenderer.invoke('mods:thumbnail', id),
   undo: (id?: number): Promise<UndoResult | null> => ipcRenderer.invoke('undo:undo', id),
   forgetUndo: (id: number): Promise<boolean> => ipcRenderer.invoke('undo:forget', id),
   onUndoChanged: (listener: (steps: UndoStep[]) => void): (() => void) => {

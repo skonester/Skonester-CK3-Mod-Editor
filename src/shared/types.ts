@@ -1167,8 +1167,23 @@ export type {
   GraphicsSettings,
   IndexStatus,
   ModTouch,
-  UndoResult
+  UndoResult,
+  ModList,
+  ModListEntry,
+  ModsState,
+  NewModRequest,
+  ModInfo as LoadOrderMod
 } from '../crusaderpope/shared/api'
+
+/** What writing a mod list back did (CrusaderPope's WriteListResult) */
+export interface WriteListResult {
+  /** the copy of the file taken first */
+  backup?: string
+  /** launcher: local mods the app registered in the launcher to put them into the playset */
+  registered?: string[]
+  /** launcher: nothing written — whether the launcher runs couldn't be checked; the reason */
+  unchecked?: string
+}
 
 /** One undoable change of the selected mod (CrusaderPope's undo journal) */
 export interface UndoStep {

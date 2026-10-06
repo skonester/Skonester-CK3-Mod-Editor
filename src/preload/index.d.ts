@@ -42,7 +42,11 @@ import type {
   TitleHistoryEntryPatch,
   TitlePatch,
   UndoResult,
-  UndoStep
+  UndoStep,
+  ModListEntry,
+  ModsState,
+  NewModRequest,
+  WriteListResult
 } from '@shared/types'
 
 export interface Ck3ToolsApi {
@@ -81,6 +85,27 @@ export interface Ck3ToolsApi {
   onModFilesChanged: (listener: (files: string[]) => void) => () => void
   /** The selected mod's undoable changes, newest first */
   listUndo: () => Promise<UndoStep[]>
+  /** The Mods page: mod lists, every mod found, the list the index loads, the active (selected) mod */
+  modsState: () => Promise<ModsState>
+  /** The list the game index loads ('none': just the selected mod) */
+  selectModList: (ref: string) => Promise<ModsState>
+  /** Creates (no ref) or updates one of the app's own lists */
+  saveModList: (list: { ref?: string; name: string; mods: ModListEntry[] }) => Promise<ModsState>
+  deleteModList: (ref: string) => Promise<ModsState>
+  /** Writes a list to its launcher playset or to the game's dlc_load.json (backed up first) */
+  writeModList: (
+    ref: string,
+    target: 'launcher' | 'game',
+    mods: ModListEntry[],
+    opts?: { launcherClosed?: boolean }
+  ) => Promise<WriteListResult>
+  /** Sets the active mod — the selected mod — by its CrusaderPope id (mod/<file>.mod) */
+  setActiveMod: (id: string | null) => Promise<ModsState>
+  createMod: (req: NewModRequest) => Promise<ModsState>
+  packMod: (id: string, overwrite?: boolean) => Promise<{ file: string; files: number; exists?: boolean }>
+  unpackMod: (id: string) => Promise<{ dir: string; files: number }>
+  openModFolder: (id: string) => Promise<void>
+  modThumbnail: (id: string) => Promise<string | null>
   /** Undo one change (the last when `id` is absent); `refused` says why not */
   undo: (id?: number) => Promise<UndoResult | null>
   forgetUndo: (id: number) => Promise<boolean>

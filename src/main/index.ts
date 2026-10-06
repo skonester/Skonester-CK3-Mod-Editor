@@ -59,6 +59,7 @@ import { getCoatsOfArms } from './coatOfArms'
 import { detectEditors, openInEditor } from './editor'
 import { callGameIndex, ensureGameIndex, gameIndexStatus, getReferences } from './gameIndex'
 import { registerBlenderIpc } from './blender'
+import { registerModsIpc } from './modsIpc'
 import { broadcastUndo, forgetUndo, modsHost, undo, undoable, undoSteps } from './modsHost'
 import { saveDna } from '../crusaderpope/main/mods/dna'
 import { mapEdit } from '../crusaderpope/main/map/edit'
@@ -508,6 +509,7 @@ function registerIpc(): void {
   }
   ipcMain.handle('image:info', (_e, rel: string) => imageInfo(rel))
   registerBlenderIpc()
+  registerModsIpc()
   ipcMain.handle('log:shader', (_e, entry: ShaderLogEntry) => logShader(entry))
   ipcMain.handle(
     'index:references',

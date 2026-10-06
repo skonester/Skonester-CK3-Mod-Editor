@@ -10,6 +10,7 @@ import {
   Crown,
   DatabaseZap,
   Landmark,
+  Layers,
   Map as MapIcon,
   Package,
   PanelLeft,
@@ -66,7 +67,8 @@ const TOOLS = [
 /** Views of the whole game plus the mod, from the game index (ported from CrusaderPope) */
 const EXPLORE = [
   { to: '/map', label: 'Map', icon: MapIcon },
-  { to: '/models', label: '3D Models', icon: Box }
+  { to: '/models', label: '3D Models', icon: Box },
+  { to: '/mods', label: 'Mods', icon: Layers }
 ] as const
 
 /**

@@ -33,7 +33,12 @@ for the lines listed in [src/crusaderpope/PATCHES.md](src/crusaderpope/PATCHES.m
 - `main/blender/`, `main/blenderWorker.ts` — glTF export and import of game meshes
 - `main/images/`, `main/imageService.ts`, `main/imageWorker.ts` — DDS/PNG decoding and
   encoding, and the `ck3://` image protocol
-- `main/describe/text.ts`, `main/gameDir.ts`, `main/cacheWriter.ts` — helpers
+- `main/describe/` — the describer: script read as plain language (cards, event and
+  on_action stories)
+- `main/mods/` — mod management (mod lists, launcher playsets, dlc_load.json, new mods,
+  packing), the undo journal, the DNA save and editing the active mod
+- `main/gameDir.ts`, `main/detect.ts`, `main/cacheWriter.ts`, `main/scriptKeysWorker.ts` —
+  helpers
 - `renderer/src/three/` — three.js materials, lights and the game-shader runtime
 - `renderer/src/components/map/` (the `.ts` modules) — the 2D and 3D map renderers,
   camera, labels and overlays
@@ -45,8 +50,12 @@ Code adapted from CrusaderPope outside that folder (rebuilt on this app's UI):
 `src/renderer/src/lib/portraitStage.ts` and `components/CharacterPortrait.tsx` (its
 PortraitViewer), `components/models/` (its ModelView and MeshViewer),
 `components/map/` (its MapView, Map3DView, Legend, DateControl, Minimap, MapPanel and
-mode bar), `src/main/blender.ts` (its blender/ipc.ts) and `src/main/gameIndexWorker.ts`
-(its indexWorker.ts).
+mode bar, MapEdit, MapEditTitle and MapEditChooser), `components/story/` (its
+StoryView and rich text, read-only), `components/Barbershop.tsx`, `components/mods/`
+and `pages/ModsPage.tsx` (its ModsView and ModDialogs), `src/main/blender.ts` (its
+blender/ipc.ts), `src/main/modsIpc.ts` (its mods/ipc.ts), `src/main/modsHost.ts` (its
+ModsHost, over this app's settings) and `src/main/gameIndexWorker.ts` (its
+indexWorker.ts).
 
 Crusader Kings III and its content belong to Paradox Interactive. Neither this app nor
 CrusaderPope is affiliated with or endorsed by Paradox Interactive.
