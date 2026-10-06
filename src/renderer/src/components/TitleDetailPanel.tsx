@@ -13,6 +13,7 @@ import ReferenceDisplay from './ReferenceDisplay'
 import ReferenceInput, { openReferenceTarget } from './ReferenceInput'
 import StaleDraftAlert from './StaleDraftAlert'
 import { Swatch } from './Swatch'
+import EntityReferencesSection from './EntityReferencesSection'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -510,6 +511,8 @@ export default function TitleDetailPanel({
             <Hint value="Trigger and script blocks are preserved untouched — edit them in a text editor." />
           </FormSection>
         )}
+
+        <EntityReferencesSection type="landed_titles" id={id} />
 
         {error && (
           <Alert variant="destructive">

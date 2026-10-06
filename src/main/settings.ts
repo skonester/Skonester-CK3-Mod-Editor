@@ -12,7 +12,8 @@ const DEFAULTS: AppSettings = {
   favoriteEntries: {},
   entryDrafts: {},
   textEditorPath: null,
-  useModFonts: true
+  useModFonts: true,
+  gameIndex: true
 }
 
 function settingsPath(): string {

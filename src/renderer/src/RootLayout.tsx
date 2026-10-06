@@ -6,6 +6,7 @@ import {
   ChevronsUpDown,
   Church,
   Crown,
+  DatabaseZap,
   Landmark,
   Package,
   PanelLeft,
@@ -43,7 +44,9 @@ import {
   useSidebar
 } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
+import { Spinner } from '@/components/ui/spinner'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 
 const TOOLS = [
   { to: '/characters', label: 'Character Editor', icon: Crown },
@@ -54,6 +57,35 @@ const TOOLS = [
   { to: '/religions', label: 'Religion Editor', icon: BookOpen },
   { to: '/cultures', label: 'Culture Editor', icon: Landmark }
 ] as const
+
+/**
+ * The game index's progress, at the foot of the sidebar while it builds or
+ * after it failed; nothing once it's ready. Leads to its Settings card.
+ */
+function IndexStatusItem(): React.JSX.Element | null {
+  const { indexStatus } = useApp()
+  if (indexStatus.state !== 'indexing' && indexStatus.state !== 'error') return null
+  const indexing = indexStatus.state === 'indexing'
+  const pct =
+    indexing && indexStatus.total ? Math.round((100 * (indexStatus.done ?? 0)) / indexStatus.total) : null
+  const label = indexing
+    ? `Indexing the game — ${indexStatus.phase ?? 'starting'}${pct !== null ? ` ${pct}%` : ''}`
+    : 'Game index failed'
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        asChild
+        tooltip={label}
+        className={cn(!indexing && 'text-destructive hover:text-destructive')}
+      >
+        <Link to="/settings">
+          {indexing ? <Spinner /> : <DatabaseZap />}
+          <span className="truncate text-xs">{label}</span>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  )
+}
 
 function CollapseButton(): React.JSX.Element {
   const { state, toggleSidebar } = useSidebar()
@@ -163,6 +195,7 @@ export default function RootLayout(): React.JSX.Element {
           </SidebarContent>
           <SidebarFooter>
             <SidebarMenu>
+              <IndexStatusItem />
               <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={pathname === '/settings'} tooltip="Settings">
                   <Link to="/settings">

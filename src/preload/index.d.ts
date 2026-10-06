@@ -11,6 +11,7 @@ import type {
   DynastyFiles,
   DynastyPatch,
   EditorInfo,
+  EntityReferences,
   FaithPatch,
   FaithHistoryEntry,
   FaithHistoryFields,
@@ -18,6 +19,7 @@ import type {
   FaithHistoryPreview,
   FaithHistoryTarget,
   HousePatch,
+  IndexStatus,
   ModFonts,
   ModInfo,
   NewCulture,
@@ -269,6 +271,30 @@ export interface Ck3ToolsApi {
   ) => Promise<ModFonts | null>
   validateGameDir: (dir: string) => Promise<DirValidation>
   validateModDir: (dir: string) => Promise<DirValidation>
+  /**
+   * Build the game index for the game plus `mod` unless it already is (or
+   * `force` it, to retry); `enabled: false` or no game dir stops it.
+   */
+  ensureGameIndex: (
+    gameDir: string | null,
+    mod: ModInfo | null,
+    enabled: boolean,
+    force?: boolean
+  ) => Promise<IndexStatus>
+  getGameIndexStatus: () => Promise<IndexStatus>
+  /** Subscribe to index progress and readiness; returns the unsubscribe */
+  onGameIndexStatus: (listener: (status: IndexStatus) => void) => () => void
+  /**
+   * What links to and from an entry (index type + id). At most `limit` items
+   * per group, except the group named by `full`; null when the index isn't
+   * ready or doesn't know the entry.
+   */
+  getReferences: (
+    type: string,
+    name: string,
+    limit?: number,
+    full?: { direction: 'incoming' | 'outgoing'; type: string }
+  ) => Promise<EntityReferences | null>
   detectEditors: () => Promise<EditorInfo[]>
   openInEditor: (file: string, line?: number) => Promise<SaveResult>
   pickDirectory: (title: string, kind: 'game' | 'mod') => Promise<string | null>

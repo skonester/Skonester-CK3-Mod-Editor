@@ -5,6 +5,9 @@ directories:
 files:
   - out/**
   - package.json
+  # GPL-3.0 + Commons Clause: the license and its notices travel with every build
+  - LICENSE
+  - NOTICE.md
   # window icon, loaded at runtime from main via ?asset
   - resources/icon.png
 win:

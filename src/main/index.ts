@@ -57,6 +57,7 @@ import { getModFonts } from './fonts'
 import { getSkillIcons } from './skillIcons'
 import { getCoatsOfArms } from './coatOfArms'
 import { detectEditors, openInEditor } from './editor'
+import { ensureGameIndex, gameIndexStatus, getReferences } from './gameIndex'
 import type {
   AppSettings,
   CharacterDetail,
@@ -67,6 +68,7 @@ import type {
   FaithHistoryPatch,
   FaithHistoryTarget,
   HousePatch,
+  ModInfo,
   NewCulture,
   NewDynasty,
   NewFaith,
@@ -390,6 +392,22 @@ function registerIpc(): void {
     'ck3:getModFonts',
     (_e, gameDir: string | null, modPath: string | null, replacePaths: string[]) =>
       getModFonts(gameDir, modPath, replacePaths)
+  )
+  ipcMain.handle(
+    'index:ensure',
+    (_e, gameDir: string | null, mod: ModInfo | null, enabled: boolean, force?: boolean) =>
+      ensureGameIndex(gameDir, mod, enabled, force)
+  )
+  ipcMain.handle('index:status', () => gameIndexStatus())
+  ipcMain.handle(
+    'index:references',
+    (
+      _e,
+      type: string,
+      name: string,
+      limit?: number,
+      full?: { direction: 'incoming' | 'outgoing'; type: string }
+    ) => getReferences(type, name, limit, full)
   )
   ipcMain.handle('ck3:validateGameDir', (_e, dir: string) => validateGameDir(dir))
   ipcMain.handle('ck3:validateModDir', (_e, dir: string) => validateModDir(dir))

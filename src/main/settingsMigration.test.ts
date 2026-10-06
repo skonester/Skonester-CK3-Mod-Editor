@@ -10,7 +10,8 @@ const BASE: AppSettings = {
   favoriteEntries: {},
   entryDrafts: {},
   textEditorPath: null,
-  useModFonts: true
+  useModFonts: true,
+  gameIndex: true
 }
 
 const character = (id: string, name: string | null): CharacterDetail =>

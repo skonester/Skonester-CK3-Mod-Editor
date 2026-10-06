@@ -10,6 +10,7 @@ import ReferenceInput, { openReferenceTarget } from './ReferenceInput'
 import { Swatch } from './Swatch'
 import FormSection from './FormSection'
 import StaleDraftAlert from './StaleDraftAlert'
+import EntityReferencesSection from './EntityReferencesSection'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -350,6 +351,8 @@ export default function ReligionDetailPanel({
             </div>
           )}
         </FormSection>
+
+        <EntityReferencesSection type="religion/religion_types" id={id} />
 
         {error && (
           <Alert variant="destructive">

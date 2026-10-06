@@ -17,6 +17,7 @@ import { idOnly } from './ReferenceLabel'
 import StaleDraftAlert from './StaleDraftAlert'
 import { IconTile, Swatch } from './Swatch'
 import FormSection from './FormSection'
+import EntityReferencesSection from './EntityReferencesSection'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -559,6 +560,8 @@ export default function FaithDetailPanel({
             </div>
           )}
         </FormSection>
+
+        <EntityReferencesSection type="faith" id={id} />
 
         {error && (
           <Alert variant="destructive">

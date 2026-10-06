@@ -15,6 +15,7 @@ import DateFormatToggle from './DateFormatToggle'
 import ReferenceDisplay from './ReferenceDisplay'
 import RulerDesignerDnaDialog from './RulerDesignerDnaDialog'
 import StaleDraftAlert from './StaleDraftAlert'
+import EntityReferencesSection from './EntityReferencesSection'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -407,6 +408,8 @@ export default function CharacterDetailPanel({
           characterId={original.id}
           onApplied={dnaApplied}
         />
+
+        <EntityReferencesSection type="characters" id={id} />
 
         {error && (
           <Alert variant="destructive">

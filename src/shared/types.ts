@@ -1,3 +1,5 @@
+import type { DefOrigin, ModTouch } from '../crusaderpope/shared/api'
+
 export interface AppSettings {
   /** Path to the CK3 `game` data directory (…\Crusader Kings III\game) */
   gameDir: string | null
@@ -25,6 +27,11 @@ export interface AppSettings {
   textEditorPath: string | null
   /** Render the app in the selected mod's own CK3 fonts (see ModFonts) */
   useModFonts: boolean
+  /**
+   * Build the game index (the game plus the selected mod) in the background,
+   * for the References section of every editor. Costs ~10 s and ~3 GB of memory.
+   */
+  gameIndex: boolean
 }
 
 /** The editors that remember favorites, recents and unsaved drafts of their rows. */
@@ -1128,4 +1135,78 @@ export interface DetectionResult {
 export interface DirValidation {
   valid: boolean
   reason: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Game index — CrusaderPope's cross-reference index (src/crusaderpope), built
+// over the game plus the selected mod in a worker thread (main/gameIndex.ts)
+// ---------------------------------------------------------------------------
+
+export type { DefOrigin, IndexStatus, ModTouch } from '../crusaderpope/shared/api'
+
+/**
+ * The index's type ids for the entities the editors edit. Any other index type
+ * (events, decisions, scripted effects, …) can appear among their references.
+ */
+export type IndexType =
+  | 'characters'
+  | 'dynasties'
+  | 'dynasty_houses'
+  | 'culture/cultures'
+  | 'faith'
+  | 'religion/religion_types'
+  | 'religion/rite_types'
+  | 'landed_titles'
+
+/** A place in a file: game-relative path, the file the game loads for it, 1-based line */
+export interface IndexSite {
+  /** Game-relative path, e.g. "events/decision_events/malta_events.txt" */
+  file: string
+  /** Absolute path of the loaded file; null when it can't be opened (inside a zip) */
+  path: string | null
+  line: number
+}
+
+/** Where an entry's winning definition lives */
+export interface IndexDef extends IndexSite {
+  /** The definition is in the selected mod (so the mod's editors can open it) */
+  inMod: boolean
+}
+
+/** One entry referencing, or referenced by, the entry asked about */
+export interface IndexRefItem {
+  type: string
+  name: string
+  display?: string
+  /** Script key paths the reference sits under, e.g. "option › if › title:k_malte.holder" */
+  contexts: string[]
+  sites: IndexSite[]
+  count: number
+  /** The entry's own winning definition, when it has one (flags and localization keys don't) */
+  def?: IndexDef
+  mod?: ModTouch
+}
+
+export interface IndexRefGroup {
+  type: string
+  typeLabel: string
+  /** Items in the full group; `items` may hold fewer (see the `limit` of getReferences) */
+  total: number
+  items: IndexRefItem[]
+}
+
+/** What the index knows about one entry: where it's defined and what links to and from it */
+export interface EntityReferences {
+  type: string
+  typeLabel: string
+  name: string
+  display?: string
+  /** How the selected mod touches the entry; absent when it's the game's, untouched */
+  mod?: ModTouch
+  /** Every definition, the winning one last, with where it comes from */
+  defs: (IndexSite & { origin?: DefOrigin; overridden?: boolean })[]
+  /** Entries that reference this one ("Used by") */
+  incoming: IndexRefGroup[]
+  /** Entries this one references ("Uses") */
+  outgoing: IndexRefGroup[]
 }

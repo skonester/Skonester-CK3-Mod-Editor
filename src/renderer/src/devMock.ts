@@ -91,7 +91,8 @@ const settings: AppSettings = {
   favoriteEntries: {},
   entryDrafts: {},
   textEditorPath: null,
-  useModFonts: true
+  useModFonts: true,
+  gameIndex: true
 }
 
 const characters: CharacterDetail[] = [
@@ -1370,6 +1371,11 @@ const mock: Ck3ToolsApi = {
   getModFonts: async () => null,
   validateGameDir: async () => ({ valid: true, reason: null }),
   validateModDir: async () => ({ valid: true, reason: null }),
+  // No game files in the browser: the index never gets past idle
+  ensureGameIndex: async () => ({ state: 'idle' }),
+  getGameIndexStatus: async () => ({ state: 'idle' }),
+  onGameIndexStatus: () => () => {},
+  getReferences: async () => null,
   detectEditors: async () => [
     { name: 'Notepad', path: 'C:\\Windows\\notepad.exe' },
     { name: 'VS Code', path: 'C:\\Mock\\Code.exe' }

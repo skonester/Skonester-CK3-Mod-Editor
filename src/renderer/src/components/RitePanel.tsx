@@ -12,6 +12,7 @@ import ReferenceInput, { openReferenceTarget } from './ReferenceInput'
 import ReferenceDisplay from './ReferenceDisplay'
 import StaleDraftAlert from './StaleDraftAlert'
 import { IconTile, Swatch } from './Swatch'
+import EntityReferencesSection from './EntityReferencesSection'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -389,6 +390,8 @@ export default function RitePanel({
             )}
           </FormSection>
         )}
+        {rite && <EntityReferencesSection type="religion/rite_types" id={rite.id} />}
+
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>

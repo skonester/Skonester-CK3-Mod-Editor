@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check, RotateCw } from 'lucide-react'
 import { useApp } from '../AppContext'
 import Hint from '../components/Hint'
 import ModPicker from '../components/ModPicker'
@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Field, FieldContent, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
-import type { DirValidation, EditorInfo, ModFonts } from '@shared/types'
+import type { DirValidation, EditorInfo, IndexStatus, ModFonts } from '@shared/types'
 
 function PathRow({
   label,
@@ -57,8 +57,27 @@ function fontStatus(enabled: boolean, modName: string | null, fonts: ModFonts | 
   return `Using ${used.join(', ')}.`
 }
 
+/** One line saying what the game index is doing. */
+function indexStatusText(enabled: boolean, status: IndexStatus): string {
+  if (!enabled) return 'Off — editors show no References section.'
+  switch (status.state) {
+    case 'idle':
+      return 'Waiting for the game directory.'
+    case 'indexing':
+      return `Indexing — ${status.phase ?? 'starting'}…`
+    case 'error':
+      return status.message?.split('\n')[0] ?? 'The index failed.'
+    case 'ready': {
+      const s = status.stats
+      if (!s) return 'Ready.'
+      const how = s.cached ? 'loaded from cache' : `built in ${(s.ms / 1000).toFixed(1)} s`
+      return `Ready — ${s.entities.toLocaleString()} entries, ${s.refs.toLocaleString()} references from ${s.files.toLocaleString()} files (${how}).`
+    }
+  }
+}
+
 export default function SettingsPage(): React.JSX.Element {
-  const { settings, selectedMod, modFonts, updateSettings } = useApp()
+  const { settings, selectedMod, modFonts, indexStatus, reindex, updateSettings } = useApp()
   const [gameValidation, setGameValidation] = useState<DirValidation | null>(null)
   const [modValidation, setModValidation] = useState<DirValidation | null>(null)
   const [detecting, setDetecting] = useState(false)
@@ -212,6 +231,40 @@ export default function SettingsPage(): React.JSX.Element {
               id="use-mod-fonts"
               checked={settings.useModFonts}
               onCheckedChange={(useModFonts) => updateSettings({ useModFonts })}
+            />
+          </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Game index</CardTitle>
+          <CardDescription>
+            Reads every script and localization file of the game and the selected mod to find what
+            refers to what — the References section of each editor. Takes about 10 seconds and 3 GB
+            of memory the first time, a few seconds after that.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldLabel htmlFor="game-index">Index the game</FieldLabel>
+              <Hint value={indexStatusText(settings.gameIndex, indexStatus)} />
+            </FieldContent>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!settings.gameIndex || indexStatus.state === 'indexing'}
+              title="Read every file again, ignoring the cached index"
+              onClick={reindex}
+            >
+              <RotateCw />
+              Re-index
+            </Button>
+            <Switch
+              id="game-index"
+              checked={settings.gameIndex}
+              onCheckedChange={(gameIndex) => updateSettings({ gameIndex })}
             />
           </Field>
         </CardContent>

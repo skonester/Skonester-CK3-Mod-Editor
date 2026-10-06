@@ -9,6 +9,7 @@ import Hint from './Hint'
 import DateFormatToggle from './DateFormatToggle'
 import StaleDraftAlert from './StaleDraftAlert'
 import { openReferenceTarget } from './ReferenceInput'
+import EntityReferencesSection from './EntityReferencesSection'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -221,6 +222,8 @@ export default function CultureDetailPanel({
             }}
           />
         )}
+
+        <EntityReferencesSection type="culture/cultures" id={id} />
 
         {error && (
           <Alert variant="destructive">

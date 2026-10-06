@@ -15,6 +15,7 @@ import ReferenceInput, { openReferenceTarget } from './ReferenceInput'
 import Hint from './Hint'
 import FormSection from './FormSection'
 import StaleDraftAlert from './StaleDraftAlert'
+import EntityReferencesSection from './EntityReferencesSection'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -526,6 +527,8 @@ export default function DynastyDetailPanel({
             <div>{members.map(memberRow)}</div>
           )}
         </FormSection>
+
+        <EntityReferencesSection type={kind === 'house' ? 'dynasty_houses' : 'dynasties'} id={id} />
 
         {error && (
           <Alert variant="destructive">

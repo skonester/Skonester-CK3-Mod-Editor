@@ -12,6 +12,7 @@ import type {
   DynastyFiles,
   DynastyPatch,
   EditorInfo,
+  EntityReferences,
   FaithPatch,
   FaithHistoryEntry,
   FaithHistoryFields,
@@ -19,6 +20,7 @@ import type {
   FaithHistoryPreview,
   FaithHistoryTarget,
   HousePatch,
+  IndexStatus,
   ModFonts,
   ModInfo,
   NewCulture,
@@ -316,6 +318,26 @@ const api = {
     ipcRenderer.invoke('ck3:validateGameDir', dir),
   validateModDir: (dir: string): Promise<DirValidation> =>
     ipcRenderer.invoke('ck3:validateModDir', dir),
+
+  ensureGameIndex: (
+    gameDir: string | null,
+    mod: ModInfo | null,
+    enabled: boolean,
+    force?: boolean
+  ): Promise<IndexStatus> => ipcRenderer.invoke('index:ensure', gameDir, mod, enabled, force),
+  getGameIndexStatus: (): Promise<IndexStatus> => ipcRenderer.invoke('index:status'),
+  onGameIndexStatus: (listener: (status: IndexStatus) => void): (() => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, status: IndexStatus): void => listener(status)
+    ipcRenderer.on('index:status', handler)
+    return () => ipcRenderer.removeListener('index:status', handler)
+  },
+  getReferences: (
+    type: string,
+    name: string,
+    limit?: number,
+    full?: { direction: 'incoming' | 'outgoing'; type: string }
+  ): Promise<EntityReferences | null> =>
+    ipcRenderer.invoke('index:references', type, name, limit, full),
 
   detectEditors: (): Promise<EditorInfo[]> => ipcRenderer.invoke('editor:detect'),
   openInEditor: (file: string, line?: number): Promise<SaveResult> =>
