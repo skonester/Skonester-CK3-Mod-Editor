@@ -61,7 +61,8 @@ import { callGameIndex, ensureGameIndex, gameIndexStatus, getReferences } from '
 import { registerBlenderIpc } from './blender'
 import { broadcastUndo, forgetUndo, modsHost, undo, undoable, undoSteps } from './modsHost'
 import { saveDna } from '../crusaderpope/main/mods/dna'
-import type { DnaSaveRequest } from '../crusaderpope/shared/api'
+import { mapEdit } from '../crusaderpope/main/map/edit'
+import type { DnaSaveRequest, MapEditRequest } from '../crusaderpope/shared/api'
 import {
   handleImageProtocol,
   imageInfo,
@@ -131,7 +132,8 @@ const GAME_INDEX_QUERIES = [
   'story',
   'tooltip',
   'usageAll',
-  'dnaEditor'
+  'dnaEditor',
+  'list'
 ]
 /** …and the map's, which build into the map cache folder main owns */
 const MAP_QUERIES = ['mapInfo', 'mapStatic', 'mapDated', 'mapTerrain', 'mapOverlays']
@@ -226,6 +228,15 @@ function registerIpc(): void {
   )
   ipcMain.handle('settings:get', () => loadSettings())
   ipcMain.handle('undo:list', () => undoSteps())
+  // Editing from the map: history (culture, faith, holding, development, holder,
+  // liege) at the map's date, a title's colour — each one undoable change
+  ipcMain.handle('mods:mapEdit', async (_e, req: MapEditRequest) => {
+    try {
+      return await mapEdit(modsHost, req)
+    } finally {
+      if (!req.plan) broadcastUndo()
+    }
+  })
   // The Barbershop's save: the DNA into the selected mod, one undoable change
   ipcMain.handle('mods:saveDna', async (_e, req: DnaSaveRequest) => {
     try {

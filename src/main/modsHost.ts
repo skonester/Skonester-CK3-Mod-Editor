@@ -41,14 +41,31 @@ export function userDirOf(s: AppSettings): string {
   return defaultUserDir(app.getPath('documents'))
 }
 
+/**
+ * The mod list CrusaderPope sees as loaded: exactly what the game index layers
+ * (the selected mod, or the chosen list with the selected mod last) — so its
+ * editing (map edits, the Barbershop) agrees with what the index shows. Not one
+ * of the user's lists: the Mods page leaves it out (`userModsState`).
+ */
+export const LOADED_LIST = '__editor-loaded'
+let loadedIds: string[] = []
+
+/** What the index layers now (CrusaderPope mod ids, load order) — set by gameIndex.ts */
+export function setLoadedMods(ids: string[]): void {
+  loadedIds = ids
+}
+
 /** CrusaderPope's settings, as ours have them */
 export function cpSettings(s: AppSettings = loadSettings()): CpSettings {
   return {
     gameDir: s.gameDir ?? '',
     language: 'english',
     userDir: userDirOf(s),
-    modList: s.modManager?.modList,
-    customModLists: s.modManager?.customModLists,
+    modList: `custom:${LOADED_LIST}`,
+    customModLists: [
+      ...(s.modManager?.customModLists ?? []),
+      { id: LOADED_LIST, name: 'Loaded in the editor', mods: loadedIds.map((id) => ({ id, enabled: true })) }
+    ],
     activeMod: s.selectedModFile ? modId(s.selectedModFile) : undefined,
     formatScripts: false,
     graphics: s.graphics
@@ -90,8 +107,11 @@ export const modsHost: ModsHost = {
       next.modManager = {
         ...s.modManager,
         ...('userDir' in patch ? { userDir: patch.userDir } : {}),
-        ...('modList' in patch ? { modList: patch.modList } : {}),
-        ...('customModLists' in patch ? { customModLists: patch.customModLists } : {})
+        // (the synthetic loaded list is never the user's)
+        ...('modList' in patch && patch.modList !== `custom:${LOADED_LIST}` ? { modList: patch.modList } : {}),
+        ...('customModLists' in patch
+          ? { customModLists: patch.customModLists?.filter((l) => l.id !== LOADED_LIST) }
+          : {})
       }
     }
     if (Object.keys(next).length > 0) broadcastSettings(saveSettings(next))

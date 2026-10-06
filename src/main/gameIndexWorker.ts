@@ -423,6 +423,7 @@ const handlers: Record<string, (...args: never[]) => unknown> = {
   locEntry: (key: string) => index?.locEntry(key) ?? null,
   newEntryInfo: (type: string, ns?: string) => index?.newEntryInfo(type, ns) ?? null,
   layouts: () => index?.layouts() ?? null,
+  list: (type: string) => index?.list(type) ?? [],
   childrenOf: (type: string, holderType: string, holder: string) =>
     index?.childrenOf(type, holderType, holder) ?? [],
   fileFolders: (type: string) => index?.fileFolders(type) ?? [],

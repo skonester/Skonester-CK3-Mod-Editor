@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { Focus, X } from 'lucide-react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Focus, Pencil, X } from 'lucide-react'
 import type { MapInfo } from '@crusaderpope/shared/api'
 import {
   TIER_NAMES,
@@ -9,11 +9,13 @@ import {
   type Mode
 } from '@crusaderpope/renderer/src/components/map/model'
 import { useOpenEntry } from '@/lib/openEntry'
+import { useApp } from '../../AppContext'
+import Hint from '../Hint'
+import { EDITABLE_LAYERS, MapLayerEdit, MapTitleEdit } from './MapEditing'
 import GameCoatOfArms from './GameCoatOfArms'
 import { Swatch } from '../Swatch'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/ui/table'
 
 /** The province under the pointer: its name, county, group in the mode and realm */
@@ -60,8 +62,9 @@ export function MapTooltip({
 /**
  * The selected province (from CrusaderPope's MapPanel): its group in the mode
  * with a "Zoom to it", then its titles, realm and holder and every layer's
- * value. Each title, character, culture and faith opens in its editor here —
- * the map shows the mod as the files have it, the editors change it.
+ * value. Each title, character, culture and faith opens in its editor here;
+ * ✎ on a row changes it from the map — history at the map's date (or a
+ * title's colour), written into the selected mod.
  */
 export function MapSidePanel({
   info,
@@ -79,7 +82,11 @@ export function MapSidePanel({
   onZoom: () => void
 }): React.JSX.Element {
   const open = useOpenEntry()
+  const { selectedMod } = useApp()
   const P = info.province
+  // The row whose editor is open (another province closes it)
+  const [editing, setEditing] = useState<string | null>(null)
+  useEffect(() => setEditing(null), [p])
   const link = (type: string | undefined, key: string, text: string): React.ReactNode =>
     type ? (
       <Button
@@ -125,12 +132,19 @@ export function MapSidePanel({
     return set.size
   }, [g, groups, info])
   const realmMode = mode === 'realm' || mode === 'vassal'
-  const rows: { k: string; v: React.ReactNode }[] = [
+  // (culture and faith are the county's, the holding its barony's)
+  const layerEditable = (id: string): boolean =>
+    EDITABLE_LAYERS.has(id) && (id === 'holding' ? P.barony[p] >= 0 : ancestorAt(info, p, 'c') >= 0)
+  const rows: { k: string; v: React.ReactNode; edit?: { title: number } | { layer: string } }[] = [
     ...(['b', 'c', 'd', 'k', 'e', 'h'] as const)
       .filter((t) => info.titles.some((x) => x.tier === t))
-      .map((tier) => ({ k: TIER_NAMES[tier][0], v: title(ancestorAt(info, p, tier)) })),
+      .map((tier) => {
+        const t = ancestorAt(info, p, tier)
+        return { k: TIER_NAMES[tier][0], v: title(t), edit: t >= 0 ? { title: t } : undefined }
+      }),
     {
       k: 'Realm',
+      edit: realm >= 0 ? { title: realm } : undefined,
       v:
         realm >= 0 ? (
           <>
@@ -148,14 +162,17 @@ export function MapSidePanel({
     },
     ...info.layers.map((l) => {
       const v = l.values[p]
+      const edit = layerEditable(l.id) ? { layer: l.id } : undefined
       if (l.things) {
         return {
           k: l.row,
+          edit,
           v: v >= 0 ? link(l.things[v].type, l.things[v].key, l.things[v].name) : '—'
         }
       }
       return {
         k: l.row,
+        edit,
         v: Number.isFinite(v)
           ? `${Math.round(v * 10) / 10}${l.scale?.unit ? ` ${l.scale.unit}` : ''}`
           : '—'
@@ -164,7 +181,7 @@ export function MapSidePanel({
   ]
 
   return (
-    <Card className="flex w-80 shrink-0 flex-col gap-3 rounded-none border-y-0 border-r-0 py-3">
+    <Card className="flex w-96 shrink-0 flex-col gap-3 rounded-none border-y-0 border-r-0 py-3">
       <div className="flex items-start gap-2 px-4">
         {g >= 0 && gl?.type === 'landed_titles' && (
           <GameCoatOfArms
@@ -214,18 +231,68 @@ export function MapSidePanel({
           {P.name[p] ? ` · ${P.name[p]}` : ''} · {info.kinds[P.kind[p]].replace('_', ' ')}
         </p>
       </div>
-      <ScrollArea className="min-h-0 flex-1 px-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2">
         <Table>
           <TableBody>
-            {rows.map((r) => (
-              <TableRow key={r.k}>
-                <TableHead className="h-auto py-1 align-top text-xs">{r.k}</TableHead>
-                <TableCell className="py-1 text-xs whitespace-normal">{r.v}</TableCell>
-              </TableRow>
-            ))}
+            {rows.map((r) => {
+              const on = editing === r.k
+              return (
+                <Fragment key={r.k}>
+                  <TableRow>
+                    <TableHead className="h-auto py-1 align-top text-xs">{r.k}</TableHead>
+                    <TableCell className="py-1 text-xs whitespace-normal">
+                      <span className="flex items-start gap-1">
+                        <span className="min-w-0 flex-1">{r.v}</span>
+                        {r.edit && (
+                          <Button
+                            variant={on ? 'secondary' : 'ghost'}
+                            size="icon-xs"
+                            disabled={!selectedMod}
+                            title={
+                              selectedMod
+                                ? `Change it in ${selectedMod.name}`
+                                : 'Select a mod to edit from the map'
+                            }
+                            onClick={() => setEditing(on ? null : r.k)}
+                          >
+                            <Pencil />
+                          </Button>
+                        )}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                  {on && r.edit && (
+                    <TableRow>
+                      <TableCell colSpan={2} className="py-1 whitespace-normal">
+                        {'title' in r.edit ? (
+                          <MapTitleEdit key={r.edit.title} info={info} t={r.edit.title} />
+                        ) : (
+                          <MapLayerEdit
+                            info={info}
+                            layer={info.layers.find(
+                              (l) => l.id === (r.edit as { layer: string }).layer
+                            )!}
+                            p={p}
+                          />
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
+              )
+            })}
           </TableBody>
         </Table>
-      </ScrollArea>
+      </div>
+      <div className="px-4">
+        <Hint
+          value={
+            selectedMod
+              ? `✎ on a row changes it in ${selectedMod.name}, at ${info.date}. Undo takes an edit back.`
+              : 'Select a mod to change the map in it.'
+          }
+        />
+      </div>
     </Card>
   )
 }

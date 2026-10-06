@@ -8,7 +8,7 @@ import type { ModInfo as IndexMod, ShaderLogEntry } from '../crusaderpope/shared
 import type { EntityReferences, IndexStatus, ModInfo } from '@shared/types'
 import type { BuildRequest } from './gameIndexWorker'
 import { modsOfList, readModsState } from '../crusaderpope/main/mods/manager'
-import { cpSettings, modId, setIndexHooks } from './modsHost'
+import { cpSettings, modId, setIndexHooks, setLoadedMods } from './modsHost'
 import { loadSettings } from './settings'
 
 /**
@@ -110,7 +110,7 @@ async function layeredMods(gameDir: string, mod: ModInfo | null): Promise<IndexM
   const ref = s.modManager?.modList
   if (!ref || ref === 'none') return own
   try {
-    const state = await readModsState(cpSettings(s), gameDir, app.getPath('documents'))
+    const state = await readModsState({ ...cpSettings(s), modList: ref }, gameDir, app.getPath('documents'))
     const list = modsOfList(state, ref)
     const same = (a?: string, b?: string | null): boolean =>
       !!a && !!b && resolve(a).toLowerCase() === resolve(b).toLowerCase()
@@ -141,6 +141,7 @@ export async function ensureGameIndex(
     return status
   }
   const mods = await layeredMods(gameDir, mod)
+  setLoadedMods(mods.map((m) => m.id))
   const key = JSON.stringify([gameDir, mods.map((m) => [m.id, m.root ?? m.archive, m.replacePaths])])
   if (built?.key === key && !force) return status
   built = { key, gameDir, mod, mods }
