@@ -56,7 +56,8 @@ export default function MapLegend({
   const land = useMemo(() => {
     let a = 0
     for (let p = 0; p < info.count; p++)
-      if (groups.of[p] >= 0 || !WATER.has(info.kinds[info.province.kind[p]])) a += info.province.area[p]
+      if (groups.of[p] >= 0 || !WATER.has(info.kinds[info.province.kind[p]]))
+        a += info.province.area[p]
     return a || 1
   }, [info, groups])
   const scale = groups.layer?.scale
@@ -167,7 +168,9 @@ export default function MapLegend({
             … {rows.length - ROWS} more (filter to find them)
           </p>
         )}
-        {rows.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">Nothing by that name</p>}
+        {rows.length === 0 && (
+          <p className="px-2 py-1 text-xs text-muted-foreground">Nothing by that name</p>
+        )}
       </div>
     </Card>
   )

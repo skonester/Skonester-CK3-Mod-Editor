@@ -123,7 +123,11 @@ const GAME_INDEX_QUERIES = [
   'textureUsers',
   'mapCharacters',
   'mapCharacter',
-  'searchCharacters'
+  'searchCharacters',
+  'card',
+  'story',
+  'tooltip',
+  'usageAll'
 ]
 /** …and the map's, which build into the map cache folder main owns */
 const MAP_QUERIES = ['mapInfo', 'mapStatic', 'mapDated', 'mapTerrain', 'mapOverlays']

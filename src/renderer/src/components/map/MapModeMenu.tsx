@@ -17,11 +17,31 @@ const SECTIONS: [string, string[]][] = [
   ['De jure', ['h', 'e', 'k', 'd', 'c', 'b']],
   [
     'Society',
-    ['culture', 'heritage', 'language', 'ethnicity', 'faith', 'religion', 'religionfamily', 'holysite', 'doctrine']
+    [
+      'culture',
+      'heritage',
+      'language',
+      'ethnicity',
+      'faith',
+      'religion',
+      'religionfamily',
+      'holysite',
+      'doctrine'
+    ]
   ],
   [
     'Land',
-    ['terrain', 'holding', 'development', 'building', 'specialbuilding', 'region', 'province', 'climate', 'winter']
+    [
+      'terrain',
+      'holding',
+      'development',
+      'building',
+      'specialbuilding',
+      'region',
+      'province',
+      'climate',
+      'winter'
+    ]
   ]
 ]
 

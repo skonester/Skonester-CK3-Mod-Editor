@@ -18,7 +18,14 @@ import ModelViewer from './ModelViewer'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 const base = (p: string): string => p.slice(p.lastIndexOf('/') + 1)
@@ -39,7 +46,12 @@ function Textures({ textures }: { textures: ModelTexture[] }): React.JSX.Element
         <figure key={i} className="w-24" title={t.path ?? `Not found: ${t.ref}`}>
           <div className="flex size-24 items-center justify-center overflow-hidden rounded-md border bg-muted/40">
             {t.path ? (
-              <GameImg path={t.path} size={96} ch={thumbChannel(t.role)} className="size-full object-contain" />
+              <GameImg
+                path={t.path}
+                size={96}
+                ch={thumbChannel(t.role)}
+                className="size-full object-contain"
+              />
             ) : (
               <span className="text-xs text-muted-foreground">missing</span>
             )}
@@ -113,7 +125,9 @@ function BlenderBar({ path, pdxmesh }: { path: string; pdxmesh?: string }): Reac
           ...r.warnings.map((w) => `⚠ ${w}`)
         ].join('\n'),
         duration: 15000,
-        action: r.files[0] ? { label: 'Reveal', onClick: () => void api.revealFile(r.files[0].abs) } : undefined
+        action: r.files[0]
+          ? { label: 'Reveal', onClick: () => void api.revealFile(r.files[0].abs) }
+          : undefined
       })
     } catch (e) {
       toast.error('Nothing imported', { description: (e as Error).message })
@@ -150,7 +164,9 @@ function BlenderBar({ path, pdxmesh }: { path: string; pdxmesh?: string }): Reac
           Import from Blender…
         </Button>
       </span>
-      {plan?.mod && !plan.problem && <span className="text-xs text-muted-foreground">into {plan.mod.name}</span>}
+      {plan?.mod && !plan.problem && (
+        <span className="text-xs text-muted-foreground">into {plan.mod.name}</span>
+      )}
     </div>
   )
 }
@@ -204,11 +220,19 @@ function AssetBody({
             </TableHeader>
             <TableBody>
               {info.meshes.map((m) => (
-                <TableRow key={m.name + m.line} data-state={m.name === sel ? 'selected' : undefined}>
+                <TableRow
+                  key={m.name + m.line}
+                  data-state={m.name === sel ? 'selected' : undefined}
+                >
                   <TableCell className="font-mono text-xs">{m.name}</TableCell>
                   <TableCell className="text-xs">
                     {m.file ? (
-                      <Button variant="link" size="xs" className="h-auto p-0" onClick={() => onOpenModel(m.file!)}>
+                      <Button
+                        variant="link"
+                        size="xs"
+                        className="h-auto p-0"
+                        onClick={() => onOpenModel(m.file!)}
+                      >
                         {base(m.file)}
                       </Button>
                     ) : (
@@ -228,7 +252,12 @@ function AssetBody({
         <FormSection title={`Entities · ${info.entities.length}`}>
           <div className="flex flex-wrap gap-1.5">
             {info.entities.map((e) => (
-              <Badge key={e.name + e.line} variant="outline" className="font-mono" title={e.pdxmesh}>
+              <Badge
+                key={e.name + e.line}
+                variant="outline"
+                className="font-mono"
+                title={e.pdxmesh}
+              >
                 {e.name}
               </Badge>
             ))}
@@ -254,7 +283,8 @@ function MeshBody({
   const textures = [
     ...new Map(info.shapes.flatMap((s) => s.textures).map((t) => [t.path ?? t.ref, t])).values()
   ]
-  if (info.error) return <p className="text-sm text-destructive">Could not read this mesh: {info.error}</p>
+  if (info.error)
+    return <p className="text-sm text-destructive">Could not read this mesh: {info.error}</p>
   return (
     <>
       <BlenderBar path={info.path} />
@@ -264,7 +294,12 @@ function MeshBody({
           <div className="flex flex-col gap-1 text-sm">
             {info.declaredIn.map((d, i) => (
               <span key={i}>
-                <Button variant="link" size="xs" className="h-auto p-0" onClick={() => onOpenModel(d.asset)}>
+                <Button
+                  variant="link"
+                  size="xs"
+                  className="h-auto p-0"
+                  onClick={() => onOpenModel(d.asset)}
+                >
                   {base(d.asset)}
                 </Button>{' '}
                 <span className="text-muted-foreground">pdxmesh</span>{' '}
@@ -274,8 +309,14 @@ function MeshBody({
             {info.blendShapeOf.map((d, i) => (
               <span key={`b${i}`}>
                 <span className="text-muted-foreground">blend shape</span>{' '}
-                <span className="font-mono text-xs">{d.id}</span> <span className="text-muted-foreground">of</span>{' '}
-                <Button variant="link" size="xs" className="h-auto p-0" onClick={() => onOpenModel(d.asset)}>
+                <span className="font-mono text-xs">{d.id}</span>{' '}
+                <span className="text-muted-foreground">of</span>{' '}
+                <Button
+                  variant="link"
+                  size="xs"
+                  className="h-auto p-0"
+                  onClick={() => onOpenModel(d.asset)}
+                >
                   {d.pdxmesh}
                 </Button>
               </span>
@@ -301,8 +342,12 @@ function MeshBody({
                   <TableCell className="max-w-48 truncate font-mono text-xs" title={s.name}>
                     {s.name}
                   </TableCell>
-                  <TableCell className="text-right text-xs">{s.vertices.toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-xs">{s.triangles.toLocaleString()}</TableCell>
+                  <TableCell className="text-right text-xs">
+                    {s.vertices.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right text-xs">
+                    {s.triangles.toLocaleString()}
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {s.shader}
                     {s.skinned ? ' · skinned' : ''}
@@ -326,7 +371,9 @@ function MeshBody({
       )}
       {info.bones.length > 0 && (
         <FormSection title={`Skeleton · ${info.bones.length} bones`}>
-          <p className="font-mono text-xs break-words text-muted-foreground">{info.bones.join(' · ')}</p>
+          <p className="font-mono text-xs break-words text-muted-foreground">
+            {info.bones.join(' · ')}
+          </p>
         </FormSection>
       )}
     </>
@@ -349,7 +396,9 @@ export default function ModelDetail({
     let cancelled = false
     void api
       .modelInfo(path)
-      .then((i) => !cancelled && setInfo((old) => (old && i && digest(old) === digest(i) ? old : i)))
+      .then(
+        (i) => !cancelled && setInfo((old) => (old && i && digest(old) === digest(i) ? old : i))
+      )
     return () => {
       cancelled = true
     }
@@ -363,7 +412,8 @@ export default function ModelDetail({
       </div>
     )
   }
-  if (info === null) return <p className="p-6 text-sm text-muted-foreground">Model file not found.</p>
+  if (info === null)
+    return <p className="p-6 text-sm text-muted-foreground">Model file not found.</p>
 
   const open = async (): Promise<void> => {
     const r = await window.ck3tools.openInEditor(info.abs)
@@ -386,12 +436,22 @@ export default function ModelDetail({
               {info.shapes.reduce((s, p) => s + p.triangles, 0).toLocaleString()} triangles
             </span>
           )}
-          <Button variant="ghost" size="xs" title="Show the file in its folder" onClick={() => void api.revealFile(info.abs)}>
+          <Button
+            variant="ghost"
+            size="xs"
+            title="Show the file in its folder"
+            onClick={() => void api.revealFile(info.abs)}
+          >
             <FolderOpen />
             Reveal
           </Button>
           {info.kind === 'asset' && (
-            <Button variant="ghost" size="xs" title="Open it in the text editor" onClick={() => void open()}>
+            <Button
+              variant="ghost"
+              size="xs"
+              title="Open it in the text editor"
+              onClick={() => void open()}
+            >
               <ExternalLink />
               Open
             </Button>

@@ -9,7 +9,7 @@ import {
   type Mode
 } from '@crusaderpope/renderer/src/components/map/model'
 import { useOpenEntry } from '@/lib/openEntry'
-import CoatOfArms from '../CoatOfArms'
+import GameCoatOfArms from './GameCoatOfArms'
 import { Swatch } from '../Swatch'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -43,9 +43,13 @@ export function MapTooltip({
       style={{ left: x + 16, top: y + 12 }}
     >
       <span className="font-medium">{provinceName(info, p)}</span>
-      {kind !== 'land' && <span className="text-muted-foreground"> · {kind.replace('_', ' ')}</span>}
+      {kind !== 'land' && (
+        <span className="text-muted-foreground"> · {kind.replace('_', ' ')}</span>
+      )}
       {county >= 0 && county !== P.barony[p] && <div>{info.titles[county].name}</div>}
-      {g >= 0 && mode !== 'c' && mode !== 'b' && <div className="text-primary">{groups.name(g)}</div>}
+      {g >= 0 && mode !== 'c' && mode !== 'b' && (
+        <div className="text-primary">{groups.name(g)}</div>
+      )}
       {mode !== 'realm' && realm >= 0 && (
         <div className="text-muted-foreground">Realm: {info.titles[realm].name}</div>
       )}
@@ -90,10 +94,11 @@ export function MapSidePanel({
     ) : (
       text
     )
-  const title = (t: number): React.ReactNode =>
+  // A realm is shown with its banner: the government's shape, the tier's bar
+  const title = (t: number, kind: 'title' | 'realm' = 'title'): React.ReactNode =>
     t >= 0 ? (
       <span className="inline-flex items-center gap-1.5">
-        <CoatOfArms ids={[info.titles[t].key]} size={18} />
+        <GameCoatOfArms kind={kind} name={info.titles[t].key} size={18} date={info.date} />
         {link('landed_titles', info.titles[t].key, info.titles[t].name)}
       </span>
     ) : (
@@ -129,8 +134,13 @@ export function MapSidePanel({
       v:
         realm >= 0 ? (
           <>
-            {title(realm)}
-            {holder && <span className="text-muted-foreground"> · {link('characters', holder.id, holder.name)}</span>}
+            {title(realm, 'realm')}
+            {holder && (
+              <span className="text-muted-foreground">
+                {' '}
+                · {link('characters', holder.id, holder.name)}
+              </span>
+            )}
           </>
         ) : (
           '—'
@@ -139,11 +149,16 @@ export function MapSidePanel({
     ...info.layers.map((l) => {
       const v = l.values[p]
       if (l.things) {
-        return { k: l.row, v: v >= 0 ? link(l.things[v].type, l.things[v].key, l.things[v].name) : '—' }
+        return {
+          k: l.row,
+          v: v >= 0 ? link(l.things[v].type, l.things[v].key, l.things[v].name) : '—'
+        }
       }
       return {
         k: l.row,
-        v: Number.isFinite(v) ? `${Math.round(v * 10) / 10}${l.scale?.unit ? ` ${l.scale.unit}` : ''}` : '—'
+        v: Number.isFinite(v)
+          ? `${Math.round(v * 10) / 10}${l.scale?.unit ? ` ${l.scale.unit}` : ''}`
+          : '—'
       }
     })
   ]
@@ -151,7 +166,14 @@ export function MapSidePanel({
   return (
     <Card className="flex w-80 shrink-0 flex-col gap-3 rounded-none border-y-0 border-r-0 py-3">
       <div className="flex items-start gap-2 px-4">
-        {g >= 0 && gl?.type === 'landed_titles' && <CoatOfArms ids={[gl.name]} size={48} />}
+        {g >= 0 && gl?.type === 'landed_titles' && (
+          <GameCoatOfArms
+            kind={mode === 'realm' || mode === 'vassal' ? 'realm' : 'title'}
+            name={gl.name}
+            size={56}
+            date={info.date}
+          />
+        )}
         <div className="min-w-0 flex-1">
           {g >= 0 && (
             <>
@@ -166,7 +188,9 @@ export function MapSidePanel({
               <p className="text-xs text-muted-foreground">
                 {counties} {counties === 1 ? 'county' : 'counties'}
                 {realmMode && info.titles[g].holder && <> · {holderOf(info.titles[g].holder!)}</>}
-                {mode === 'vassal' && info.titles[g].liege !== undefined && <> · under {title(info.titles[g].liege!)}</>}
+                {mode === 'vassal' && info.titles[g].liege !== undefined && (
+                  <> · under {title(info.titles[g].liege!)}</>
+                )}
               </p>
             </>
           )}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Check, RotateCw } from 'lucide-react'
 import { useApp } from '../AppContext'
+import GraphicsSettingsCard from '../components/GraphicsSettingsCard'
 import Hint from '../components/Hint'
 import ModPicker from '../components/ModPicker'
 import { Button } from '@/components/ui/button'
@@ -269,6 +270,11 @@ export default function SettingsPage(): React.JSX.Element {
           </Field>
         </CardContent>
       </Card>
+
+      <GraphicsSettingsCard
+        value={settings.graphics}
+        onChange={(graphics) => updateSettings({ graphics })}
+      />
 
       <ModPicker />
     </div>

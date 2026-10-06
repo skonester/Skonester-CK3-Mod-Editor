@@ -157,7 +157,8 @@ export default function Map3DPane(props: Map3DPaneProps): React.JSX.Element {
   // What is under the colours
   useEffect(() => {
     if (!map) return
-    const path = style === 'paper' ? info.paperImage : style === 'terrain' ? info.terrainImage : undefined
+    const path =
+      style === 'paper' ? info.paperImage : style === 'terrain' ? info.terrainImage : undefined
     if (!path) return map.setStyle(style, null)
     let on = true
     void loadImage(path, 4096).then((img) => on && map.setStyle(style, img))
@@ -197,7 +198,13 @@ export default function Map3DPane(props: Map3DPaneProps): React.JSX.Element {
       x,
       y,
       hovered: -1,
-      drag: { button: e.button, turn: e.button !== 0 || e.shiftKey || e.altKey, x0: x, y0: y, moved: false }
+      drag: {
+        button: e.button,
+        turn: e.button !== 0 || e.shiftKey || e.altKey,
+        x0: x,
+        y0: y,
+        moved: false
+      }
     }
     live.current.onHover(-1, x, y)
   }

@@ -392,7 +392,11 @@ const crusaderPopeApi = {
   exportModel: (path, pdxmesh) => ipcRenderer.invoke('model:export', path, pdxmesh),
   importModelPlan: (path, pdxmesh) => ipcRenderer.invoke('model:importPlan', path, pdxmesh),
   importModel: (path, pdxmesh) => ipcRenderer.invoke('model:import', path, pdxmesh),
-  revealFile: (absPath) => ipcRenderer.invoke('shell:revealFile', absPath)
+  revealFile: (absPath) => ipcRenderer.invoke('shell:revealFile', absPath),
+  card: (type, name) => ipcRenderer.invoke('index:card', type, name),
+  story: (type, name) => ipcRenderer.invoke('index:story', type, name),
+  tooltip: (type, name) => ipcRenderer.invoke('index:tooltip', type, name),
+  usageAll: (type, name, userType) => ipcRenderer.invoke('index:usageAll', type, name, userType)
 } satisfies Partial<CrusaderPopeApi>
 
 contextBridge.exposeInMainWorld('api', crusaderPopeApi)

@@ -8,8 +8,8 @@
  * views — portraits (PortraitBuilder over the History of game-start facts),
  * the model browser, coats of arms, the map's data, and the store of game
  * shaders compiled for WebGL on a pool of threads — under the same method
- * names CrusaderPope's own worker uses, so its renderer code calls them as is.
- * (Not its stories / describer: that's another slice.)
+ * names CrusaderPope's own worker uses, so its renderer code calls them as is —
+ * and its StoryBuilder: script read as plain language (cards, event stories).
  */
 import { parentPort, Worker } from 'node:worker_threads'
 import { createHash } from 'node:crypto'
@@ -30,6 +30,8 @@ import { mapCharacter, mapCharacters } from '../crusaderpope/main/map/edit-chara
 import { coatOfArms } from '../crusaderpope/main/coa/coa'
 import { fxFingerprint, ShaderStore } from '../crusaderpope/main/shaders/store'
 import { ShaderPool } from '../crusaderpope/main/shaders/pool'
+import { StoryBuilder } from '../crusaderpope/main/describe/stories'
+import { LocExamples } from '../crusaderpope/main/describe/locExamples'
 import type {
   CoaKind,
   IndexStatus,
@@ -72,6 +74,7 @@ let buildMods: IndexMod[] = []
 
 // Derived from the index (rebuilt after a build and after updates; all lazy — the work happens on use)
 let history: History | null = null
+let stories: StoryBuilder | null = null
 let portraits: PortraitBuilder | null = null
 let characters: CharacterTable | null = null
 let models: ModelBrowser | null = null
@@ -127,6 +130,11 @@ function derive(
 ): void {
   mapData = new MapData(idx)
   history = new History(idx)
+  stories = new StoryBuilder(idx)
+  // What a text code prints for the sample character (the examples in faith cards' names)
+  const h = history
+  let examples: LocExamples | undefined
+  stories.locExample = (chain) => (examples ??= new LocExamples(idx, h)).examples([chain])[chain]
   const builder = new PortraitBuilder(idx, history, what.lib)
   portraits = builder
   if (what.characters !== false || !characters) characters = new CharacterTable(idx, history)
@@ -219,7 +227,7 @@ function mapRaster(dir: string): Promise<RasterMeta> {
 function build(req: BuildRequest): void {
   const seq = ++buildSeq
   index = null
-  history = portraits = characters = models = mapData = shaders = null
+  history = portraits = characters = models = mapData = shaders = stories = null
   rasterJob = null
   cache = req.cache
   buildMods = req.mod ? [req.mod] : []
@@ -452,7 +460,25 @@ const handlers: Record<string, (...args: never[]) => unknown> = {
     index && characters ? mapCharacters(index, characters, q, date) : [],
   mapCharacter: (id: string, date: string) =>
     index && characters ? mapCharacter(index, characters, id, date) : undefined,
-  searchCharacters: (q: string, limit?: number) => characters?.search(q, limit) ?? []
+  searchCharacters: (q: string, limit?: number) => characters?.search(q, limit) ?? [],
+  // Script read as plain language: an entry's card (with its event or on_action story)
+  card: (type: string, name: string) => {
+    const e = entity(type, name)
+    return e && stories ? stories.card(e) : null
+  },
+  story: (type: string, name: string) => {
+    const e = entity(type, name)
+    if (!e || !stories) return null
+    return type === 'on_action' ? stories.onActionStory(e) : type === 'events' ? stories.eventStory(e) : null
+  },
+  tooltip: (type: string, name: string) => {
+    const e = entity(type, name)
+    return e && stories ? stories.tooltip(e) : null
+  },
+  usageAll: (type: string, name: string, userType: string) => {
+    const e = entity(type, name)
+    return e && stories ? stories.usageAll(e, userType) : []
+  }
 }
 
 parentPort!.on('message', async (req: Request) => {

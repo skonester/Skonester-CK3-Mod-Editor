@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowRight, ChevronRight, ExternalLink, Map as MapIcon, RotateCw } from 'lucide-react'
+import { ArrowRight, BookOpen, ChevronRight, Map as MapIcon, RotateCw } from 'lucide-react'
 import { toast } from 'sonner'
 import type {
   EntityReferences,
@@ -14,6 +14,7 @@ import { editorTarget, modTouchLabel, siteLabel } from '@/lib/indexLinks'
 import FormSection from './FormSection'
 import Hint from './Hint'
 import ReferenceLabel from './ReferenceLabel'
+import { useReader } from './story/ReaderProvider'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -64,27 +65,29 @@ function RefRow({ item }: { item: IndexRefItem }): React.JSX.Element {
   const entry = { id: item.name, name: item.display ?? null }
   const more = item.sites.length - SITES_SHOWN
 
+  const read = useReader()
+  // Entries with an editor here open in it; the rest are read as plain language
   const open = (): void => {
     if (target) void navigate(target)
-    else if (item.def) void openSite(item.def)
+    else read({ type: item.type, name: item.name })
   }
 
   return (
     <li className="flex flex-col gap-0.5 rounded-md px-2 py-1 hover:bg-muted/50">
       <div className="flex min-w-0 items-center gap-2">
-        {target || item.def?.path ? (
+        {target || item.def ? (
           <Button
             variant="link"
             size="sm"
             className="group h-auto min-w-0 justify-start gap-1 p-0 text-left font-normal text-foreground"
-            title={target ? 'Open in its editor' : "Open its definition in the text editor"}
+            title={target ? 'Open in its editor' : 'Read it as plain language'}
             onClick={open}
           >
             <ReferenceLabel entry={entry} nameClassName="underline decoration-dotted underline-offset-2" />
             {target ? (
               <ArrowRight className="size-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />
             ) : (
-              <ExternalLink className="size-3 shrink-0 text-muted-foreground" />
+              <BookOpen className="size-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />
             )}
           </Button>
         ) : (
@@ -279,10 +282,20 @@ export default function EntityReferencesSection({
 
   const touch = refs ? modTouchLabel(refs.mod) : null
   const navigate = useNavigate()
+  const read = useReader()
   const onMap = refs && MAP_TYPES.has(type)
   const action =
-    refs && (touch || refs.mod?.duplicate || onMap) ? (
+    refs ? (
       <span className="flex items-center gap-1">
+        <Button
+          variant="outline"
+          size="xs"
+          title="Its script as plain language: what it is, does and is made of"
+          onClick={() => read({ type, name: id })}
+        >
+          <BookOpen />
+          Read
+        </Button>
         {onMap && (
           <Button
             variant="outline"

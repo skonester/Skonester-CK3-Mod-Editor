@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useModFonts } from './useModFonts'
+import { setGraphics } from '@crusaderpope/renderer/src/graphics'
 import type { AppSettings, IndexStatus, ModFonts, ModInfo } from '@shared/types'
 
 interface AppContextValue {
@@ -59,6 +60,9 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
   }, [settings?.modDir])
 
   const selectedMod = mods.find((m) => m.file === settings?.selectedModFile) ?? null
+  // The 3D views read the graphics settings when they open
+  setGraphics(settings?.graphics)
+
   const modFonts = useModFonts(
     settings?.useModFonts ?? false,
     settings?.gameDir ?? null,

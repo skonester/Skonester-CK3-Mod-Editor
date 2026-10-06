@@ -129,7 +129,13 @@ export default function GameMap({
       const v = view.current
       if (!m || !cv || !v || !groups || !info) return
       const hp = legendHover ?? hover?.p
-      m.draw(cv, v, style, hp !== undefined ? groups.of[hp] + 1 : 0, sel !== null ? groups.of[sel] + 1 : 0)
+      m.draw(
+        cv,
+        v,
+        style,
+        hp !== undefined ? groups.of[hp] + 1 : 0,
+        sel !== null ? groups.of[sel] + 1 : 0
+      )
       if (overlay.current) drawOverlays2d(overlay.current, v, info, style)
       if (labels.current) drawLabels(labels.current, v, info, groups, style)
       setViewTick((t) => t + 1)
@@ -184,7 +190,8 @@ export default function GameMap({
     img.crossOrigin = 'anonymous'
     img.onload = () => {
       if (!live || map2d.current !== m) return
-      if (style === 'terrain' && !picked.current && isFlat(img) && paperImage) return setStyle('paper')
+      if (style === 'terrain' && !picked.current && isFlat(img) && paperImage)
+        return setStyle('paper')
       m.setBackground(img)
       drawRef.current()
     }
@@ -339,7 +346,8 @@ export default function GameMap({
   const searchable = useMemo(() => {
     if (!groups) return []
     const out: { g: number; name: string }[] = []
-    for (let g = 0; g < groups.area.length; g++) if (groups.area[g]) out.push({ g, name: groups.name(g) })
+    for (let g = 0; g < groups.area.length; g++)
+      if (groups.area[g]) out.push({ g, name: groups.name(g) })
     return out.sort((a, b) => a.name.localeCompare(b.name))
   }, [groups])
   const runSearch = (): void => {
@@ -403,7 +411,12 @@ export default function GameMap({
             const v = view.current
             const cv = canvas.current
             if (d === '3d' && dim === '2d' && v && cv) {
-              setFocusBox([v.x, v.y, v.x + cv.clientWidth * v.scale, v.y + cv.clientHeight * v.scale])
+              setFocusBox([
+                v.x,
+                v.y,
+                v.x + cv.clientWidth * v.scale,
+                v.y + cv.clientHeight * v.scale
+              ])
             }
             // The 3D terrain has the game's materials: a flat colour map no longer calls for the paper map
             if (d === '3d' && !picked.current && style === 'paper') setStyle('terrain')
@@ -445,8 +458,14 @@ export default function GameMap({
               onContextMenu={(e) => e.preventDefault()}
             >
               <canvas ref={canvas} className="absolute inset-0 block size-full" />
-              <canvas ref={overlay} className="pointer-events-none absolute inset-0 block size-full" />
-              <canvas ref={labels} className="pointer-events-none absolute inset-0 block size-full" />
+              <canvas
+                ref={overlay}
+                className="pointer-events-none absolute inset-0 block size-full"
+              />
+              <canvas
+                ref={labels}
+                className="pointer-events-none absolute inset-0 block size-full"
+              />
             </div>
           ) : info && ids && groups ? (
             <Map3DPane
@@ -475,7 +494,14 @@ export default function GameMap({
             </div>
           )}
           {hover && info && groups && !dragging.current?.moved && (
-            <MapTooltip info={info} groups={groups} mode={mode} p={hover.p} x={hover.x} y={hover.y} />
+            <MapTooltip
+              info={info}
+              groups={groups}
+              mode={mode}
+              p={hover.p}
+              x={hover.x}
+              y={hover.y}
+            />
           )}
           {dim === '2d' && info && groups && canvas.current && (
             <MapMinimap

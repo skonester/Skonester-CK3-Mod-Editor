@@ -1,4 +1,4 @@
-import type { DefOrigin, ModTouch } from '../crusaderpope/shared/api'
+import type { DefOrigin, GraphicsSettings, ModTouch } from '../crusaderpope/shared/api'
 
 export interface AppSettings {
   /** Path to the CK3 `game` data directory (…\Crusader Kings III\game) */
@@ -32,6 +32,11 @@ export interface AppSettings {
    * for the References section of every editor. Costs ~10 s and ~3 GB of memory.
    */
   gameIndex: boolean
+  /**
+   * Quality of the 3D views (portraits, models, the map): a preset with
+   * per-value overrides — CrusaderPope's graphics settings. Absent = high.
+   */
+  graphics?: GraphicsSettings
 }
 
 /** The editors that remember favorites, recents and unsaved drafts of their rows. */
@@ -1142,7 +1147,7 @@ export interface DirValidation {
 // over the game plus the selected mod in a worker thread (main/gameIndex.ts)
 // ---------------------------------------------------------------------------
 
-export type { DefOrigin, IndexStatus, ModTouch } from '../crusaderpope/shared/api'
+export type { DefOrigin, GraphicsSettings, IndexStatus, ModTouch } from '../crusaderpope/shared/api'
 
 /**
  * The index's type ids for the entities the editors edit. Any other index type

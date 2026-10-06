@@ -11,7 +11,13 @@ const WIDTH = 210
 const OPEN_KEY = 'map.minimap.open'
 
 /** The mode's colours over the whole map, `w` × `h` device pixels (each the average of four samples) */
-function picture(info: MapInfo, ids: Uint16Array, groups: Groups, w: number, h: number): HTMLCanvasElement {
+function picture(
+  info: MapInfo,
+  ids: Uint16Array,
+  groups: Groups,
+  w: number,
+  h: number
+): HTMLCanvasElement {
   const P = info.province
   const rgb = new Uint8Array(info.count * 3)
   for (let p = 0; p < info.count; p++) {
@@ -91,7 +97,8 @@ export default function MapMinimap({
   const dpr = window.devicePixelRatio || 1
   const ids = rasterOf(info)
   const pic = useMemo(
-    () => (ids ? picture(info, ids, groups, Math.round(WIDTH * dpr), Math.round(height * dpr)) : null),
+    () =>
+      ids ? picture(info, ids, groups, Math.round(WIDTH * dpr), Math.round(height * dpr)) : null,
     [info, ids, groups, height, dpr]
   )
 
@@ -129,7 +136,10 @@ export default function MapMinimap({
   }
   const jump = (e: React.PointerEvent): void => {
     const r = canvas.current!.getBoundingClientRect()
-    onJump(((e.clientX - r.left) / r.width) * info.width, ((e.clientY - r.top) / r.height) * info.height)
+    onJump(
+      ((e.clientX - r.left) / r.width) * info.width,
+      ((e.clientY - r.top) / r.height) * info.height
+    )
   }
   // The map under it neither pans, zooms nor hovers
   const stop = (e: React.SyntheticEvent): void => e.stopPropagation()

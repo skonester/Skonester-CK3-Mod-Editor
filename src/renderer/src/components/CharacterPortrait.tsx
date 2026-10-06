@@ -171,7 +171,10 @@ function PortraitView({
         </div>
       )}
       {busy && (
-        <Spinner className="absolute top-2 left-2 text-muted-foreground" aria-label="Updating the portrait" />
+        <Spinner
+          className="absolute top-2 left-2 text-muted-foreground"
+          aria-label="Updating the portrait"
+        />
       )}
     </div>
   )
@@ -284,7 +287,11 @@ export default function CharacterPortrait({
                 ['Eyes', data.colors.eyes]
               ] as const
             ).map(([label, color]) => (
-              <span key={label} className="flex items-center gap-1 text-xs text-muted-foreground" title={label}>
+              <span
+                key={label}
+                className="flex items-center gap-1 text-xs text-muted-foreground"
+                title={label}
+              >
                 <Swatch hex={rgb(color)} className="size-3" />
                 {label}
               </span>

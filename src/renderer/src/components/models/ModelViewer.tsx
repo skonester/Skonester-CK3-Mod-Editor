@@ -107,7 +107,8 @@ function ModelStage({
       // Bounds in three.js space (Z mirrored) from the vertices as drawn (GPU-skinned parts posed)
       const box = new THREE.Box3()
       const pos = drawnPositions(part, prog instanceof Error ? null : prog)
-      for (let k = 0; k < pos.length; k += 3) box.expandByPoint(v.set(pos[k], pos[k + 1], -pos[k + 2]))
+      for (let k = 0; k < pos.length; k += 3)
+        box.expandByPoint(v.set(pos[k], pos[k + 1], -pos[k + 2]))
       all.union(box)
       if (!extra) framed.union(box)
     })
@@ -134,7 +135,11 @@ function ModelStage({
         i & 4 ? framed.max.z : framed.min.z
       ).sub(center)
       const depth = c.dot(back)
-      dist = Math.max(dist, depth + Math.abs(c.dot(right)) / tanH, depth + Math.abs(c.dot(up)) / tanV)
+      dist = Math.max(
+        dist,
+        depth + Math.abs(c.dot(right)) / tanH,
+        depth + Math.abs(c.dot(up)) / tanV
+      )
     }
     camera.position.copy(center).addScaledVector(back, Math.max(dist * 1.08, r * 0.2))
     camera.lookAt(center)
@@ -178,7 +183,12 @@ function ModelStage({
     }
   }, [data, programs, gameShaders, textured, wire, extras])
 
-  return <div ref={mount} className={cn('relative overflow-hidden rounded-lg border bg-muted/30', className)} />
+  return (
+    <div
+      ref={mount}
+      className={cn('relative overflow-hidden rounded-lg border bg-muted/30', className)}
+    />
+  )
 }
 
 /**
@@ -195,7 +205,12 @@ export default function ModelViewer({
 }): React.JSX.Element {
   const [data, setData] = useState<ModelGeometry | null | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
-  const [look, setLook] = useState<Look>({ gameShaders: true, textured: true, wire: false, extras: false })
+  const [look, setLook] = useState<Look>({
+    gameShaders: true,
+    textured: true,
+    wire: false,
+    extras: false
+  })
   const [programs, setPrograms] = useState<Programs | undefined>(undefined)
   const [big, setBig] = useState(false)
 
@@ -241,7 +256,8 @@ export default function ModelViewer({
     }
   }, [data, look.gameShaders])
 
-  const waiting = look.gameShaders && look.textured && !!data?.parts.length && programs === undefined
+  const waiting =
+    look.gameShaders && look.textured && !!data?.parts.length && programs === undefined
   const vertices = data?.parts.reduce((s, p) => s + p.positions.length / 3, 0) ?? 0
   const extraCount = data?.parts.filter(isExtra).length ?? 0
   const failed = (programs ?? [])
@@ -273,7 +289,11 @@ export default function ModelViewer({
         'Game shaders',
         "Render with the game's own shaders (gfx/FX compiled for WebGL), or with the viewer's approximation"
       )}
-      {toggle('textured', 'Textures', 'Materials with their textures, or plain clay to judge the shape')}
+      {toggle(
+        'textured',
+        'Textures',
+        'Materials with their textures, or plain clay to judge the shape'
+      )}
       {toggle('wire', 'Wireframe', 'Show the triangles')}
       {extraCount > 0 &&
         toggle(
@@ -318,7 +338,8 @@ export default function ModelViewer({
         <>
           {toggles}
           <p className="text-xs text-muted-foreground">
-            {data.parts.length} part{data.parts.length === 1 ? '' : 's'} · {vertices.toLocaleString()} vertices
+            {data.parts.length} part{data.parts.length === 1 ? '' : 's'} ·{' '}
+            {vertices.toLocaleString()} vertices
             {data.bones
               ? ` · ${data.bones} bones (${posed ? `GPU-skinned: ${data.pose}, first frame` : 'bind pose'})`
               : ''}
@@ -331,7 +352,10 @@ export default function ModelViewer({
                   ? 'game shaders'
                   : `game shaders on ${viaGame} of ${data.parts.length} parts`}
                 {failed.length > 0 && (
-                  <span className="text-destructive"> ({failed.length} failed to compile — hover)</span>
+                  <span className="text-destructive">
+                    {' '}
+                    ({failed.length} failed to compile — hover)
+                  </span>
                 )}
               </span>
             )}

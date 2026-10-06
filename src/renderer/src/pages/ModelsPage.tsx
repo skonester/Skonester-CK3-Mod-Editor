@@ -128,12 +128,17 @@ export default function ModelsPage(): React.JSX.Element {
                 key={f.folder}
                 variant="ghost"
                 size="xs"
-                className={cn('w-full justify-start gap-2 font-normal', f.folder === folder && 'bg-accent')}
+                className={cn(
+                  'w-full justify-start gap-2 font-normal',
+                  f.folder === folder && 'bg-accent'
+                )}
                 title={f.folder}
                 onClick={() => go({ folder: f.folder, path: undefined })}
               >
                 <Folder className="shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate text-left">{f.folder.replace(/^gfx\//, '')}</span>
+                <span className="min-w-0 flex-1 truncate text-left">
+                  {f.folder.replace(/^gfx\//, '')}
+                </span>
                 {!!f.modCount && <Badge variant="outline">{f.modCount} mod</Badge>}
                 <span className="text-muted-foreground">{f.count}</span>
               </Button>
@@ -174,7 +179,9 @@ export default function ModelsPage(): React.JSX.Element {
                     >
                       <Thumb path={m.thumb} />
                       <span className="flex min-w-0 flex-1 flex-col text-left">
-                        <span className="truncate text-sm">{m.file.replace(/\.(asset|mesh)$/i, '')}</span>
+                        <span className="truncate text-sm">
+                          {m.file.replace(/\.(asset|mesh)$/i, '')}
+                        </span>
                         <span className="truncate text-xs text-muted-foreground">
                           {m.kind}
                           {m.summary ? ` · ${m.summary}` : ''}
