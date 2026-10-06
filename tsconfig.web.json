@@ -13,7 +13,8 @@
     "allowImportingTsExtensions": true,
     "paths": {
       "@shared/*": ["./src/shared/*"],
-      "@/*": ["./src/renderer/src/*"]
+      "@/*": ["./src/renderer/src/*"],
+      "@crusaderpope/*": ["./src/crusaderpope/*"]
     }
   },
   "include": [

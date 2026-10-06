@@ -14,6 +14,7 @@ import FaithEditorPage from './pages/FaithEditorPage'
 import ReligionEditorPage from './pages/ReligionEditorPage'
 import RiteEditorPage from './pages/RiteEditorPage'
 import TitleEditorPage from './pages/TitleEditorPage'
+import MapPage from './pages/MapPage'
 
 /**
  * Deep-link target for the character editor (e.g. from a family-tree node).
@@ -101,6 +102,15 @@ export interface TitleSearch {
   id?: string
   create?: boolean
   parent?: string
+}
+
+/**
+ * Deep-link target for the map: `focus` is an index entry, `<type>:<key>`
+ * ("landed_titles:k_jerusalem", "culture/cultures:french") — the map opens
+ * in that entry's mode with it selected and in view ("Show on map").
+ */
+export interface MapSearch {
+  focus?: string
 }
 
 const rootRoute = createRootRoute({
@@ -219,6 +229,15 @@ const titlesRoute = createRoute({
   })
 })
 
+const mapRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/map',
+  component: MapPage,
+  validateSearch: (search: Record<string, unknown>): MapSearch => ({
+    focus: typeof search.focus === 'string' ? search.focus : undefined
+  })
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   settingsRoute,
@@ -228,7 +247,8 @@ const routeTree = rootRoute.addChildren([
   faithsRoute,
   ritesRoute,
   religionsRoute,
-  culturesRoute
+  culturesRoute,
+  mapRoute
 ])
 
 // Hash history keeps routing working when the packaged app loads index.html from file://

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowRight, ChevronRight, ExternalLink, RotateCw } from 'lucide-react'
+import { ArrowRight, ChevronRight, ExternalLink, Map as MapIcon, RotateCw } from 'lucide-react'
 import { toast } from 'sonner'
 import type {
   EntityReferences,
@@ -31,6 +31,9 @@ const PAGE = 200
 const SITES_SHOWN = 3
 
 type Direction = 'incoming' | 'outgoing'
+
+/** The types the map can show an entry of (a title, or a culture/faith/religion layer's thing) */
+const MAP_TYPES = new Set<string>(['landed_titles', 'culture/cultures', 'faith', 'religion/religion_types'])
 
 async function openSite(site: { path: string | null; line: number; file: string }): Promise<void> {
   if (!site.path) {
@@ -275,9 +278,22 @@ export default function EntityReferencesSection({
   }
 
   const touch = refs ? modTouchLabel(refs.mod) : null
+  const navigate = useNavigate()
+  const onMap = refs && MAP_TYPES.has(type)
   const action =
-    refs && (touch || refs.mod?.duplicate) ? (
+    refs && (touch || refs.mod?.duplicate || onMap) ? (
       <span className="flex items-center gap-1">
+        {onMap && (
+          <Button
+            variant="outline"
+            size="xs"
+            title="Show it on the map"
+            onClick={() => void navigate({ to: '/map', search: { focus: `${type}:${id}` } })}
+          >
+            <MapIcon />
+            Show on map
+          </Button>
+        )}
         {touch && (
           <Tooltip>
             <TooltipTrigger asChild>

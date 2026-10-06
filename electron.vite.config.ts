@@ -71,6 +71,7 @@ export default defineConfig({
     resolve: {
       alias: {
         '@shared': resolve(__dirname, 'src/shared'),
+        '@crusaderpope': resolve(__dirname, 'src/crusaderpope'),
         '@': resolve(__dirname, 'src/renderer/src')
       }
     }

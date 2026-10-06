@@ -8,7 +8,7 @@
  */
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import type { PortraitData, ShaderProgram } from '../../../crusaderpope/shared/api'
+import type { PortraitData, ShaderProgram } from '@crusaderpope/shared/api'
 import {
   addGameLights,
   disposeScene,
@@ -17,16 +17,16 @@ import {
   loadEnvironment,
   loaded,
   material
-} from '../../../crusaderpope/renderer/src/three/pdx'
+} from '@crusaderpope/renderer/src/three/pdx'
 import {
   createGameScene,
   gameGeometry,
   gameMaterial,
   PORTRAIT_ENVIRONMENT,
   type GameScene
-} from '../../../crusaderpope/renderer/src/three/gameShader'
-import { digest } from '../../../crusaderpope/renderer/src/revision'
-import { viewerPixelRatio } from '../../../crusaderpope/renderer/src/graphics'
+} from '@crusaderpope/renderer/src/three/gameShader'
+import { digest } from '@crusaderpope/renderer/src/revision'
+import { viewerPixelRatio } from '@crusaderpope/renderer/src/graphics'
 
 /**
  * Camera for a whole creature: from the front-left and a little above, the silhouette centred and fitted into the

@@ -8,6 +8,7 @@ import {
   Crown,
   DatabaseZap,
   Landmark,
+  Map as MapIcon,
   Package,
   PanelLeft,
   Settings,
@@ -55,7 +56,8 @@ const TOOLS = [
   { to: '/faiths', label: 'Faith Editor', icon: Church },
   { to: '/rites', label: 'Rite Editor', icon: Church },
   { to: '/religions', label: 'Religion Editor', icon: BookOpen },
-  { to: '/cultures', label: 'Culture Editor', icon: Landmark }
+  { to: '/cultures', label: 'Culture Editor', icon: Landmark },
+  { to: '/map', label: 'Map', icon: MapIcon }
 ] as const
 
 /**
