@@ -59,7 +59,9 @@ import { getCoatsOfArms } from './coatOfArms'
 import { detectEditors, openInEditor } from './editor'
 import { callGameIndex, ensureGameIndex, gameIndexStatus, getReferences } from './gameIndex'
 import { registerBlenderIpc } from './blender'
-import { forgetUndo, undo, undoable, undoSteps } from './modsHost'
+import { broadcastUndo, forgetUndo, modsHost, undo, undoable, undoSteps } from './modsHost'
+import { saveDna } from '../crusaderpope/main/mods/dna'
+import type { DnaSaveRequest } from '../crusaderpope/shared/api'
 import {
   handleImageProtocol,
   imageInfo,
@@ -128,7 +130,8 @@ const GAME_INDEX_QUERIES = [
   'card',
   'story',
   'tooltip',
-  'usageAll'
+  'usageAll',
+  'dnaEditor'
 ]
 /** …and the map's, which build into the map cache folder main owns */
 const MAP_QUERIES = ['mapInfo', 'mapStatic', 'mapDated', 'mapTerrain', 'mapOverlays']
@@ -223,6 +226,14 @@ function registerIpc(): void {
   )
   ipcMain.handle('settings:get', () => loadSettings())
   ipcMain.handle('undo:list', () => undoSteps())
+  // The Barbershop's save: the DNA into the selected mod, one undoable change
+  ipcMain.handle('mods:saveDna', async (_e, req: DnaSaveRequest) => {
+    try {
+      return await saveDna(modsHost, req)
+    } finally {
+      broadcastUndo()
+    }
+  })
   ipcMain.handle('undo:undo', (_e, id?: number) => undo(id))
   ipcMain.handle('undo:forget', (_e, id: number) => forgetUndo(id))
   ipcMain.handle('settings:set', (_e, patch: Partial<AppSettings>) => saveSettings(patch))

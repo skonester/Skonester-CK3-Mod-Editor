@@ -416,7 +416,9 @@ const crusaderPopeApi = {
   card: (type, name) => ipcRenderer.invoke('index:card', type, name),
   story: (type, name) => ipcRenderer.invoke('index:story', type, name),
   tooltip: (type, name) => ipcRenderer.invoke('index:tooltip', type, name),
-  usageAll: (type, name, userType) => ipcRenderer.invoke('index:usageAll', type, name, userType)
+  usageAll: (type, name, userType) => ipcRenderer.invoke('index:usageAll', type, name, userType),
+  dnaEditor: (type, name) => ipcRenderer.invoke('index:dnaEditor', type, name),
+  saveDna: (req) => ipcRenderer.invoke('mods:saveDna', req)
 } satisfies Partial<CrusaderPopeApi>
 
 contextBridge.exposeInMainWorld('api', crusaderPopeApi)

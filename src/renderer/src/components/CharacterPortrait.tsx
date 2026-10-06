@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Maximize2 } from 'lucide-react'
+import { Maximize2, Scissors } from 'lucide-react'
 import type { PortraitData, PortraitRequest } from '@crusaderpope/shared/api'
 import { api } from '@crusaderpope/renderer/src/api'
 import { programFor } from '@crusaderpope/renderer/src/three/gameShader'
@@ -8,6 +8,7 @@ import { PortraitStage, type Figure } from '@/lib/portraitStage'
 import { useApp } from '../AppContext'
 import Hint from './Hint'
 import { Swatch } from './Swatch'
+import Barbershop from './Barbershop'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -21,7 +22,7 @@ import { Toggle } from '@/components/ui/toggle'
 import { cn } from '@/lib/utils'
 
 /** How the figure is built and drawn — the toggles under the portrait */
-interface Look {
+export interface Look {
   dressed: boolean
   /** Blend shapes: the fine facial features genes add */
   shapes: boolean
@@ -31,7 +32,7 @@ interface Look {
   gameShaders: boolean
 }
 
-const DEFAULT_LOOK: Look = { dressed: true, shapes: true, bones: true, gameShaders: true }
+export const DEFAULT_LOOK: Look = { dressed: true, shapes: true, bones: true, gameShaders: true }
 
 /**
  * One 3D view of a portrait (CrusaderPope's PortraitViewer, minus its chrome):
@@ -39,19 +40,23 @@ const DEFAULT_LOOK: Look = { dressed: true, shapes: true, bones: true, gameShade
  * onto the stage once its textures and programs are ready — the old figure
  * stays until then, so a toggle or a save never blanks the view.
  */
-function PortraitView({
+export function PortraitView({
   type,
   name,
   look,
+  request,
   className,
   onData
 }: {
   type: string
   name: string
   look: Look
+  /** Genes, age and sex over its DNA — the Barbershop's live preview */
+  request?: PortraitRequest
   className?: string
   onData?: (d: PortraitData | null) => void
 }): React.JSX.Element {
+  const requestKey = JSON.stringify(request ?? null)
   const { indexStatus } = useApp()
   const revision = indexStatus.state === 'ready' ? (indexStatus.revision ?? 0) : null
   const mount = useRef<HTMLDivElement>(null)
@@ -83,6 +88,7 @@ function PortraitView({
     setError(null)
     setFetching(true)
     const opts: PortraitRequest = {
+      ...request,
       blendShapes: look.shapes,
       boneMorphs: look.bones,
       naked: !look.dressed,
@@ -108,7 +114,7 @@ function PortraitView({
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, name, look.shapes, look.bones, look.dressed, revision])
+  }, [type, name, requestKey, look.shapes, look.bones, look.dressed, revision])
 
   // The game's shaders per part, compiled once per Effect; a part whose Effect
   // fails keeps the viewer's own material
@@ -240,6 +246,7 @@ export default function CharacterPortrait({
   const [look, setLook] = useState<Look>(DEFAULT_LOOK)
   const [data, setData] = useState<PortraitData | null>(null)
   const [big, setBig] = useState(false)
+  const [shop, setShop] = useState(false)
   const worn = data?.accessories
     .filter((a) => !/^(eye|teeth|eyelashes)_accessory$/.test(a.gene))
     .map((a) => `${a.gene}: ${a.accessory}`)
@@ -279,6 +286,18 @@ export default function CharacterPortrait({
       {data && (
         <>
           <LookToggles look={look} onChange={setLook} creature={!!data.creature} />
+          {!data.creature && (
+            <Button
+              variant="outline"
+              size="xs"
+              className="self-start"
+              title="Change the looks gene by gene — face, hair, colours — and save the DNA into the mod"
+              onClick={() => setShop(true)}
+            >
+              <Scissors />
+              Barbershop…
+            </Button>
+          )}
           <div className="flex items-center gap-2">
             {(
               [
@@ -302,6 +321,7 @@ export default function CharacterPortrait({
           </span>
         </>
       )}
+      {shop && <Barbershop id={id} onClose={() => setShop(false)} />}
       <Dialog open={big} onOpenChange={setBig}>
         <DialogContent className="flex h-[85vh] flex-col sm:max-w-5xl">
           <DialogHeader>

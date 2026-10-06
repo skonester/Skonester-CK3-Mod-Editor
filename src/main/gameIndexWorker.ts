@@ -413,12 +413,28 @@ const handlers: Record<string, (...args: never[]) => unknown> = {
     full?: { direction: 'incoming' | 'outgoing'; type: string }
   ) => references(type, name, limit, full),
 
-  // CrusaderPope's own queries (its indexWorker.ts), for its 3D and map code
+  // CrusaderPope's own queries (its indexWorker.ts), for its 3D and map code —
+  // and for its mod editing (Barbershop, map edits): definitions as written, where
+  // an entry would go, the texts it reads
+  detail: (type: string, name: string) => index?.detail(type, name) ?? null,
+  overrideSource: (type: string, name: string, activeMod?: string) =>
+    index?.overrideSource(type, name, activeMod) ?? null,
+  overrideFileBytes: (type: string, name: string) => index?.overrideFileBytes(type, name) ?? null,
+  locEntry: (key: string) => index?.locEntry(key) ?? null,
+  newEntryInfo: (type: string, ns?: string) => index?.newEntryInfo(type, ns) ?? null,
+  layouts: () => index?.layouts() ?? null,
+  childrenOf: (type: string, holderType: string, holder: string) =>
+    index?.childrenOf(type, holderType, holder) ?? [],
   fileFolders: (type: string) => index?.fileFolders(type) ?? [],
   filesIn: (type: string, folder: string) => index?.filesIn(type, folder) ?? [],
   portrait: (type: string, name: string, opts?: PortraitRequest) => {
     const e = entity(type, name)
     return e && portraits ? portraits.build(e, opts) : null
+  },
+  // The Barbershop: a character's DNA gene by gene, with the genes on offer
+  dnaEditor: (type: string, name: string) => {
+    const e = entity(type, name)
+    return e && portraits ? portraits.dnaEditor(e) : null
   },
   portraitReport: (type: string, name: string, opts?: PortraitRequest) => {
     const e = entity(type, name)
