@@ -45,7 +45,18 @@ export default defineConfig({
           index: resolve(__dirname, 'src/main/index.ts'),
           // Worker threads load these by file name from out/main
           gameIndexWorker: resolve(__dirname, 'src/main/gameIndexWorker.ts'),
-          cacheWriter: resolve(__dirname, 'src/crusaderpope/main/cacheWriter.ts')
+          // CrusaderPope's own threads, under the names its code starts them by
+          ...Object.fromEntries(
+            [
+              'cacheWriter',
+              'imageWorker',
+              'shaderWorker',
+              'mapWorker',
+              'mapTerrainWorker',
+              'mapOverlaysWorker',
+              'blenderWorker'
+            ].map((name) => [name, resolve(__dirname, `src/crusaderpope/main/${name}.ts`)])
+          )
         }
       }
     }

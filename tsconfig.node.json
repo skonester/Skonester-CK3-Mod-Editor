@@ -19,7 +19,8 @@
     "src/main/**/*",
     "src/preload/**/*",
     "src/shared/**/*",
-    "src/crusaderpope/**/*",
+    "src/crusaderpope/main/**/*",
+    "src/crusaderpope/shared/**/*",
     "electron.vite.config.ts"
   ]
 }

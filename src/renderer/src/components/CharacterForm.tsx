@@ -189,6 +189,8 @@ interface Props {
    * it — the paste rewires files for a character that already exists on disk.
    */
   onPasteDna?: () => void
+  /** Rendered at the top of Appearance (the edit panel's 3D portrait) */
+  appearanceSlot?: React.ReactNode
 }
 
 /**
@@ -216,7 +218,8 @@ export default function CharacterForm({
   markRequired = false,
   identitySlot,
   childrenSlot,
-  onPasteDna
+  onPasteDna,
+  appearanceSlot
 }: Props): React.JSX.Element {
   const iconCtx: IconContext = { gameDir, modPath, replacePaths }
   // Script that runs on the character, folded into the fields it changes
@@ -853,6 +856,7 @@ export default function CharacterForm({
       </FormSection>
 
       <FormSection title="Appearance">
+        {appearanceSlot}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             <FieldLabel>DNA</FieldLabel>

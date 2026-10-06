@@ -1390,5 +1390,10 @@ const mock: Ck3ToolsApi = {
 
 export function installDevMock(): void {
   window.ck3tools = mock
+  // CrusaderPope's bridge, which its 3D code reads on load: an index that never gets ready
+  window.api = {
+    status: async () => ({ state: 'idle' }),
+    onStatus: () => () => {}
+  } as unknown as typeof window.api
   console.info('[devMock] window.ck3tools mock installed (browser preview)')
 }

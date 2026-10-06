@@ -57,7 +57,14 @@ import { getModFonts } from './fonts'
 import { getSkillIcons } from './skillIcons'
 import { getCoatsOfArms } from './coatOfArms'
 import { detectEditors, openInEditor } from './editor'
-import { ensureGameIndex, gameIndexStatus, getReferences } from './gameIndex'
+import { callGameIndex, ensureGameIndex, gameIndexStatus, getReferences } from './gameIndex'
+import {
+  handleImageProtocol,
+  imageInfo,
+  registerImageScheme
+} from '../crusaderpope/main/imageService'
+import { captureWebglConsole, initShaderLog, logShader } from '../crusaderpope/main/shaderLog'
+import type { ShaderLogEntry } from '../crusaderpope/shared/api'
 import type {
   AppSettings,
   CharacterDetail,
@@ -90,6 +97,36 @@ const APP_NAME = 'Skonester CK3 Mod Editor'
 // packaged build to the folder the old "CK3 Tools" name used; dev keeps ck3-tools.
 if (app.isPackaged) app.setPath('userData', join(app.getPath('appData'), 'CK3 Tools'))
 
+// CrusaderPope's `ck3://` protocol — game images (`ck3://img/<game path>`), decoded
+// by its image workers, and the map's province rasters (`ck3://map/<key>.bin`).
+// The scheme has to be registered before the app is ready.
+registerImageScheme()
+const mapCacheDir = (): string => join(app.getPath('userData'), 'map-cache')
+
+/**
+ * CrusaderPope's index queries its 3D and map code makes (`window.api.<name>`),
+ * forwarded as is to the game index worker.
+ */
+const GAME_INDEX_QUERIES = [
+  'portrait',
+  'portraitReport',
+  'shader',
+  'shaderPrograms',
+  'textureData',
+  'coatOfArms',
+  'fileFolders',
+  'filesIn',
+  'modelFolder',
+  'modelInfo',
+  'modelGeometry',
+  'textureUsers',
+  'mapCharacters',
+  'mapCharacter',
+  'searchCharacters'
+]
+/** …and the map's, which build into the map cache folder main owns */
+const MAP_QUERIES = ['mapInfo', 'mapStatic', 'mapDated', 'mapTerrain', 'mapOverlays']
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
@@ -109,6 +146,8 @@ function createWindow(): void {
   })
 
   win.on('ready-to-show', () => win.show())
+  // WebGL errors of the 3D views go to the shader log (userData/logs/shaders.log)
+  captureWebglConsole(win.webContents)
 
   // Dev only: label the window from .claude/dev-label.txt so several concurrent
   // sessions' Electron windows can be told apart on the desktop.
@@ -399,6 +438,16 @@ function registerIpc(): void {
       ensureGameIndex(gameDir, mod, enabled, force)
   )
   ipcMain.handle('index:status', () => gameIndexStatus())
+  for (const m of GAME_INDEX_QUERIES) {
+    ipcMain.handle(`index:${m}`, (_e, ...args: unknown[]) => callGameIndex(m, ...args))
+  }
+  for (const m of MAP_QUERIES) {
+    ipcMain.handle(`index:${m}`, (_e, ...args: unknown[]) =>
+      callGameIndex(m, mapCacheDir(), ...args)
+    )
+  }
+  ipcMain.handle('image:info', (_e, rel: string) => imageInfo(rel))
+  ipcMain.handle('log:shader', (_e, entry: ShaderLogEntry) => logShader(entry))
   ipcMain.handle(
     'index:references',
     (
@@ -443,6 +492,8 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  initShaderLog()
+  handleImageProtocol({ map: { dir: mapCacheDir, name: /^[0-9a-f]{16}(-[a-z0-9]+)?\.bin$/ } })
   registerIpc()
   createWindow()
 

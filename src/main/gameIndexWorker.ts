@@ -4,19 +4,39 @@
  * A build parses every script and localization file (~10 s, ~3 GB), so it runs
  * here; the main process (gameIndex.ts) forwards queries and file changes.
  *
- * Unlike CrusaderPope's own worker this one carries only the index — no
- * stories, portraits, map or shaders — so it stays a thin shell around
- * build / refreshFiles / references.
+ * Besides the index it carries what CrusaderPope derives from it for the 3D
+ * views — portraits (PortraitBuilder over the History of game-start facts),
+ * the model browser, coats of arms, the map's data, and the store of game
+ * shaders compiled for WebGL on a pool of threads — under the same method
+ * names CrusaderPope's own worker uses, so its renderer code calls them as is.
+ * (Not its stories / describer: that's another slice.)
  */
 import { parentPort, Worker } from 'node:worker_threads'
-import { join } from 'node:path'
+import { createHash } from 'node:crypto'
+import { availableParallelism } from 'node:os'
+import { dirname, join } from 'node:path'
 import { GameIndex, type Entity } from '../crusaderpope/main/indexer/gameIndex'
 import { cacheParts, readIndexCache } from '../crusaderpope/main/indexer/cache'
 import { GameFiles } from '../crusaderpope/main/mods/gamefiles'
+import { PortraitBuilder } from '../crusaderpope/main/portraits/portrait'
+import { History } from '../crusaderpope/main/portraits/modifiers'
+import { ModelBrowser } from '../crusaderpope/main/portraits/models'
+import { CharacterTable } from '../crusaderpope/main/history/characters'
+import { MapData } from '../crusaderpope/main/map/mapData'
+import { RASTER_VERSION, readRasterMeta, type RasterMeta } from '../crusaderpope/main/map/raster'
+import { mapTerrain } from '../crusaderpope/main/map/terrain'
+import { mapOverlays } from '../crusaderpope/main/map/overlays'
+import { mapCharacter, mapCharacters } from '../crusaderpope/main/map/edit-characters'
+import { coatOfArms } from '../crusaderpope/main/coa/coa'
+import { fxFingerprint, ShaderStore } from '../crusaderpope/main/shaders/store'
+import { ShaderPool } from '../crusaderpope/main/shaders/pool'
 import type {
+  CoaKind,
   IndexStatus,
   ModInfo as IndexMod,
-  RefGroup
+  PortraitRequest,
+  RefGroup,
+  ShaderRequest
 } from '../crusaderpope/shared/api'
 import type {
   EntityReferences,
@@ -47,8 +67,25 @@ let buildSeq = 0
 /** Bumped by every build and incremental update: views keyed on it reload */
 let revision = 0
 let cache: BuildRequest['cache'] | null = null
+/** What the current build layers over the game (the shader and map threads layer the same) */
+let buildMods: IndexMod[] = []
+
+// Derived from the index (rebuilt after a build and after updates; all lazy — the work happens on use)
+let history: History | null = null
+let portraits: PortraitBuilder | null = null
+let characters: CharacterTable | null = null
+let models: ModelBrowser | null = null
+let mapData: MapData | null = null
+let shaders: ShaderStore | null = null
+/** Compiler threads of the current build (a newer build cancels the old pool) */
+let pool: ShaderPool | null = null
 
 const post = (status: IndexStatus): void => parentPort!.postMessage({ status })
+
+/** An entry for the shader log (written by the main process) */
+function logShader(kind: string, title: string, detail?: string): void {
+  parentPort!.postMessage({ log: { kind, title, detail } })
+}
 
 /** Writes the cache on a thread of its own (crusaderpope/main/cacheWriter.ts) */
 function saveCache(idx: GameIndex, fingerprint: string, state = idx.exportState()): void {
@@ -80,10 +117,112 @@ function scheduleRecache(): void {
   }, RECACHE_DELAY)
 }
 
+/**
+ * `lib`: the portrait asset library to keep (its mesh and texture caches) when
+ * no gfx file changed; `characters` / `models`: false keeps those as they are.
+ */
+function derive(
+  idx: GameIndex,
+  what: { lib?: PortraitBuilder['lib']; characters?: boolean; models?: boolean } = {}
+): void {
+  mapData = new MapData(idx)
+  history = new History(idx)
+  const builder = new PortraitBuilder(idx, history, what.lib)
+  portraits = builder
+  if (what.characters !== false || !characters) characters = new CharacterTable(idx, history)
+  // Creatures' previews borrow the decal list of the first character showing them
+  if (what.models !== false || !models)
+    models = new ModelBrowser(idx, builder.lib, (mesh) => builder.previewDecals(mesh))
+}
+
+/**
+ * The compiler threads and the store of compiled shaders for the loaded files:
+ * programs of an earlier run with the same FX files come from the cache next to
+ * the index cache. Replaces the running pool.
+ */
+function shaderStore(gameDir: string, files: GameFiles): ShaderStore {
+  pool?.terminate()
+  const threads = new ShaderPool(
+    join(__dirname, 'shaderWorker.js'),
+    { gameDir, mods: buildMods },
+    Math.max(1, Math.min(4, Math.floor(availableParallelism() / 3)))
+  )
+  pool = threads
+  const store = new ShaderStore(
+    (req) => threads.compile(req),
+    cache ? join(dirname(cache.file), 'shaders.json') : null,
+    fxFingerprint(files, (cache?.code ?? '') + threads.version),
+    (req, message) => logShader('COMPILE', `${req.file} · ${req.effect}`, message)
+  )
+  store.load()
+  return store
+}
+
+/**
+ * Every Effect the .asset files name, compiled on the shader threads once the
+ * index is ready — a view asking meanwhile waits for the same compile.
+ */
+function precompileShaders(idx: GameIndex, store: ShaderStore, seq: number): void {
+  const assets = idx.modelFiles().filter((m) => /\.asset$/i.test(m.rel))
+  void store
+    .precompile(assets, idx.vfs, {
+      planned: () => {},
+      progress: () => {},
+      alive: () => seq === buildSeq && shaders === store
+    })
+    .then(() => {
+      const { programs, failures } = store.list()
+      logShader('SUMMARY', `${programs.length} shader programs compiled, ${failures.length} failed`)
+    })
+    .catch(() => {})
+}
+
+/** The province raster of the loaded map files (built once per version of them, on a thread of its own) */
+let rasterJob: { key: string; job: Promise<RasterMeta> } | null = null
+function mapRaster(dir: string): Promise<RasterMeta> {
+  const v = vfs
+  if (!v || !mapData) return Promise.reject(new Error('Index not ready'))
+  const files = mapData.mapFiles()
+  const pf = v.get(files.provinces)
+  const df = v.get(files.definitions)
+  if (!pf || !df) return Promise.reject(new Error('The loaded game files have no map'))
+  const key = createHash('sha1')
+    .update(
+      JSON.stringify([RASTER_VERSION, ...[pf, df].map((f) => [v.where(f), v.stat(f).size, v.stat(f).mtime])])
+    )
+    .digest('hex')
+    .slice(0, 16)
+  if (rasterJob?.key === key) return rasterJob.job
+  const cached = readRasterMeta(dir, key)
+  const job = cached
+    ? Promise.resolve(cached)
+    : new Promise<RasterMeta>((resolve, reject) => {
+        const png = v.read(pf)
+        const csv = v.readText(df)
+        if (!png || csv === undefined) return reject(new Error('Cannot read the map files'))
+        const worker = new Worker(join(__dirname, 'mapWorker.js'), { workerData: { png, csv, dir, key } })
+        worker.once('message', (m: { meta?: RasterMeta; error?: string }) => {
+          void worker.terminate()
+          if (m.meta) resolve(m.meta)
+          else reject(new Error(m.error ?? 'No province raster'))
+        })
+        worker.once('error', reject)
+      })
+  rasterJob = { key, job }
+  // A failed build is tried again on the next request
+  job.catch(() => {
+    if (rasterJob?.job === job) rasterJob = null
+  })
+  return job
+}
+
 function build(req: BuildRequest): void {
   const seq = ++buildSeq
   index = null
+  history = portraits = characters = models = mapData = shaders = null
+  rasterJob = null
   cache = req.cache
+  buildMods = req.mod ? [req.mod] : []
   if (recacheTimer) clearTimeout(recacheTimer)
   recacheTimer = null
 
@@ -102,7 +241,7 @@ function build(req: BuildRequest): void {
 
   try {
     vfs?.close()
-    vfs = new GameFiles(req.gameDir, req.mod ? [req.mod] : [])
+    vfs = new GameFiles(req.gameDir, buildMods)
     let idx = new GameIndex(vfs, req.language)
     idx.scan(progress)
     // Valid while every indexed file, the language and the indexer code are unchanged
@@ -123,7 +262,11 @@ function build(req: BuildRequest): void {
     if (seq !== buildSeq) return
     index = idx
     if (!loaded) saveCache(idx, fingerprint)
+    derive(idx)
+    const store = shaderStore(req.gameDir, vfs)
+    shaders = store
     post({ state: 'ready', stats: idx.stats, gameDir: req.gameDir, revision: ++revision })
+    precompileShaders(idx, store, seq)
   } catch (err) {
     post({ state: 'error', message: String((err as Error)?.stack ?? err), gameDir: req.gameDir })
   }
@@ -134,14 +277,22 @@ function build(req: BuildRequest): void {
  * elsewhere (absolute paths; a folder stands for everything below it) — taken
  * in without a full build. Returns a reason when a full build is needed instead.
  */
-async function refreshFiles(paths: string[]): Promise<{ changed: boolean; fallback?: string }> {
+async function refreshFiles(
+  paths: string[]
+): Promise<{ changed: boolean; fallback?: string; gfx?: string[] }> {
   const idx = index
   if (!idx) return { changed: false, fallback: 'the index is not ready' }
   let changed = false
+  const files: string[] = []
+  const gfx: string[] = []
+  let shaderFiles = false
   let next: string[] | undefined = paths
   while (next) {
     const r = idx.refreshFiles(next)
     changed ||= r.changed
+    files.push(...r.files)
+    gfx.push(...r.gfx)
+    shaderFiles ||= !!r.shaders?.length
     if (r.fallback) return { changed, fallback: r.fallback }
     next = r.rest
     // Queries that came in meanwhile are answered between the parts
@@ -150,11 +301,30 @@ async function refreshFiles(paths: string[]): Promise<{ changed: boolean; fallba
       if (index !== idx) return { changed }
     }
   }
+  // Shader files aren't the index's: their programs compile again on demand
+  if (shaderFiles) shaders = shaderStore(idx.gameDir, idx.vfs)
   if (changed) {
+    derive(idx, {
+      // A new asset library forgets the meshes and textures read so far: only when a gfx file changed
+      lib: gfx.length ? undefined : (portraits?.lib ?? undefined),
+      characters: files.some(
+        (f) => /^(history|localization)\//i.test(f) || /^common\/(dynast|religion|culture|traits)/i.test(f)
+      ),
+      models: gfx.length > 0
+    })
     scheduleRecache()
-    post({ state: 'ready', stats: idx.stats, gameDir: idx.gameDir, revision: ++revision })
   }
-  return { changed }
+  if (changed || shaderFiles) {
+    post({
+      state: 'ready',
+      stats: idx.stats,
+      gameDir: idx.gameDir,
+      revision: ++revision,
+      changedFiles: files.slice(0, 500)
+    })
+  }
+  // (gfx: the image service drops its decoded copies of those files)
+  return { changed, gfx }
 }
 
 function siteOf(file: string, line: number): IndexSite {
@@ -223,6 +393,8 @@ function references(
   }
 }
 
+const entity = (type: string, name: string): Entity | undefined => index?.get(type, name)
+
 const handlers: Record<string, (...args: never[]) => unknown> = {
   build: (req: BuildRequest) => build(req),
   refreshFiles: (paths: string[]) => refreshFiles(paths),
@@ -231,7 +403,56 @@ const handlers: Record<string, (...args: never[]) => unknown> = {
     name: string,
     limit?: number,
     full?: { direction: 'incoming' | 'outgoing'; type: string }
-  ) => references(type, name, limit, full)
+  ) => references(type, name, limit, full),
+
+  // CrusaderPope's own queries (its indexWorker.ts), for its 3D and map code
+  fileFolders: (type: string) => index?.fileFolders(type) ?? [],
+  filesIn: (type: string, folder: string) => index?.filesIn(type, folder) ?? [],
+  portrait: (type: string, name: string, opts?: PortraitRequest) => {
+    const e = entity(type, name)
+    return e && portraits ? portraits.build(e, opts) : null
+  },
+  portraitReport: (type: string, name: string, opts?: PortraitRequest) => {
+    const e = entity(type, name)
+    return e && portraits ? portraits.report(e, opts) : null
+  },
+  modelFolder: (folder: string) => models?.folder(folder) ?? [],
+  modelInfo: (path: string) => models?.info(path) ?? null,
+  modelGeometry: (path: string, pdxmesh?: string) => models?.geometry(path, pdxmesh) ?? null,
+  textureUsers: (path: string) => models?.textureUsers(path) ?? [],
+  // The Blender round trip: the mesh file and each sub-mesh's material
+  modelExportPlan: (path: string, pdxmesh?: string) => models?.exportPlan(path, pdxmesh) ?? null,
+  shader: (req: ShaderRequest) => {
+    if (!shaders) throw new Error('Index not ready')
+    return shaders.compile(req)
+  },
+  shaderPrograms: () => shaders?.list() ?? { programs: [], failures: [] },
+  textureData: async (path: string, maxSize?: number) => {
+    const t = await portraits?.lib.texture(path, maxSize ?? 0)
+    return t ? { width: t.width, height: t.height, rgba: t.rgba } : null
+  },
+  coatOfArms: (kind: CoaKind, key: string, date?: string) =>
+    index ? coatOfArms(index, kind, key, date) : null,
+  // The map: its province raster is built into the map cache folder `dir` (served as ck3://map/<key>.bin)
+  mapInfo: async (dir: string, date?: string) => {
+    const meta = await mapRaster(dir)
+    return mapData ? mapData.info(meta, date) : null
+  },
+  mapStatic: async (dir: string) => {
+    const meta = await mapRaster(dir)
+    return mapData ? mapData.static(meta) : null
+  },
+  mapDated: async (dir: string, date?: string) => {
+    const meta = await mapRaster(dir)
+    return mapData ? mapData.dated(meta, date) : null
+  },
+  mapTerrain: (dir: string) => (vfs && mapData ? mapTerrain(vfs, mapData.mapFiles(), dir) : null),
+  mapOverlays: (dir: string) => (vfs && mapData ? mapOverlays(vfs, mapData.mapFiles(), dir) : null),
+  mapCharacters: (q: string, date: string) =>
+    index && characters ? mapCharacters(index, characters, q, date) : [],
+  mapCharacter: (id: string, date: string) =>
+    index && characters ? mapCharacter(index, characters, id, date) : undefined,
+  searchCharacters: (q: string, limit?: number) => characters?.search(q, limit) ?? []
 }
 
 parentPort!.on('message', async (req: Request) => {

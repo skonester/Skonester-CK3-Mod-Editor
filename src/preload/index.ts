@@ -43,6 +43,10 @@ import type {
   TitleHistoryEntryPatch,
   TitlePatch
 } from '@shared/types'
+import type {
+  IndexStatus as CpIndexStatus,
+  RendererApi as CrusaderPopeApi
+} from '../crusaderpope/shared/api'
 
 const api = {
   getFaithHistory: (
@@ -351,3 +355,40 @@ const api = {
 export type Ck3ToolsApi = typeof api
 
 contextBridge.exposeInMainWorld('ck3tools', api)
+
+/**
+ * CrusaderPope's renderer bridge (`window.api`, its RendererApi): the part of
+ * it that its ported 3D and map code (src/crusaderpope/renderer) calls, on the
+ * same IPC channels its own preload uses — so that code runs unchanged.
+ */
+const crusaderPopeApi = {
+  status: () => ipcRenderer.invoke('index:status'),
+  onStatus: (cb: (s: CpIndexStatus) => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, s: CpIndexStatus): void => cb(s)
+    ipcRenderer.on('index:status', listener)
+    return () => ipcRenderer.removeListener('index:status', listener)
+  },
+  portrait: (type, name, opts) => ipcRenderer.invoke('index:portrait', type, name, opts),
+  portraitReport: (type, name, opts) =>
+    ipcRenderer.invoke('index:portraitReport', type, name, opts),
+  shader: (req) => ipcRenderer.invoke('index:shader', req),
+  shaderPrograms: () => ipcRenderer.invoke('index:shaderPrograms'),
+  textureData: (path, maxSize) => ipcRenderer.invoke('index:textureData', path, maxSize),
+  logShader: (entry) => ipcRenderer.invoke('log:shader', entry),
+  coatOfArms: (kind, key, date) => ipcRenderer.invoke('index:coatOfArms', kind, key, date),
+  fileFolders: (type) => ipcRenderer.invoke('index:fileFolders', type),
+  filesIn: (type, folder) => ipcRenderer.invoke('index:filesIn', type, folder),
+  modelFolder: (folder) => ipcRenderer.invoke('index:modelFolder', folder),
+  modelInfo: (path) => ipcRenderer.invoke('index:modelInfo', path),
+  modelGeometry: (path, pdxmesh) => ipcRenderer.invoke('index:modelGeometry', path, pdxmesh),
+  textureUsers: (path) => ipcRenderer.invoke('index:textureUsers', path),
+  mapInfo: (date) => ipcRenderer.invoke('index:mapInfo', date),
+  mapStatic: () => ipcRenderer.invoke('index:mapStatic'),
+  mapDated: (date) => ipcRenderer.invoke('index:mapDated', date),
+  mapTerrain: () => ipcRenderer.invoke('index:mapTerrain'),
+  mapOverlays: () => ipcRenderer.invoke('index:mapOverlays'),
+  mapCharacters: (q, date) => ipcRenderer.invoke('index:mapCharacters', q, date),
+  searchCharacters: (q, limit) => ipcRenderer.invoke('index:searchCharacters', q, limit)
+} satisfies Partial<CrusaderPopeApi>
+
+contextBridge.exposeInMainWorld('api', crusaderPopeApi)

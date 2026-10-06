@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import type {
   CalendarConfig,
@@ -30,6 +30,9 @@ import {
 import { cn } from '@/lib/utils'
 import { formatCalendarDate, isValidCK3Date } from '@/lib/ck3Date'
 import { normalizeCharacterDraft as withDefaults } from '@/lib/characterDraft'
+
+// three.js and the game-shader code load with the first portrait shown
+const CharacterPortrait = lazy(() => import('./CharacterPortrait'))
 
 interface Props {
   modPath: string
@@ -396,6 +399,11 @@ export default function CharacterDetailPanel({
           }
           childrenSlot={childrenSlot}
           onPasteDna={() => setDnaDialogOpen(true)}
+          appearanceSlot={
+            <Suspense fallback={null}>
+              <CharacterPortrait id={id} name={original.name} />
+            </Suspense>
+          }
         />
 
         <RulerDesignerDnaDialog

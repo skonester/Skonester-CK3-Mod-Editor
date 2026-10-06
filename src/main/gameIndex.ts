@@ -2,7 +2,9 @@ import { app, BrowserWindow } from 'electron'
 import { watch, type FSWatcher } from 'fs'
 import { join } from 'path'
 import { Worker } from 'worker_threads'
-import type { ModInfo as IndexMod } from '../crusaderpope/shared/api'
+import { initImages, refreshImages } from '../crusaderpope/main/imageService'
+import { logShader } from '../crusaderpope/main/shaderLog'
+import type { ModInfo as IndexMod, ShaderLogEntry } from '../crusaderpope/shared/api'
 import type { EntityReferences, IndexStatus, ModInfo } from '@shared/types'
 import type { BuildRequest } from './gameIndexWorker'
 
@@ -11,6 +13,8 @@ import type { BuildRequest } from './gameIndexWorker'
  * time, over the game plus the selected mod. `ensureGameIndex` builds it when
  * that pair changes; the mod folder is watched so saves — this app's and any
  * other editor's — are taken in incrementally, keeping references current.
+ * Each build also restarts CrusaderPope's image workers (the `ck3://img/…`
+ * protocol) over the same layering, so textures come from the same files.
  */
 
 /** Hash of the indexer's code (electron.vite.config.ts `indexCodeHash`): a change invalidates the cache */
@@ -34,7 +38,18 @@ function startWorker(): Worker {
     // The whole game's references take ~3 GB; big mods add to that
     resourceLimits: { maxOldGenerationSizeMb: 6144 }
   })
-  w.on('message', (msg: { id?: number; result?: unknown; error?: string; status?: IndexStatus }) => {
+  type Message = {
+    id?: number
+    result?: unknown
+    error?: string
+    status?: IndexStatus
+    log?: ShaderLogEntry
+  }
+  w.on('message', (msg: Message) => {
+    if (msg.log) {
+      logShader(msg.log)
+      return
+    }
     if (msg.status) {
       setStatus(msg.status)
       return
@@ -117,6 +132,7 @@ export function ensureGameIndex(
   // Changes seen before the build read the files are part of it
   changed.clear()
   void call('build', req).catch(() => {})
+  initImages(gameDir, undefined, req.mod ? [req.mod] : [])
   watchMod(mod?.path && mod.pathExists ? mod.path : null)
   return status
 }
@@ -135,6 +151,15 @@ export function getReferences(
 ): Promise<EntityReferences | null> {
   if (status.state !== 'ready') return Promise.resolve(null)
   return call<EntityReferences | null>('references', type, name, limit, full)
+}
+
+/**
+ * Any of the worker's CrusaderPope queries (portrait, shader, modelGeometry,
+ * mapInfo, …) — what its renderer code reaches as `window.api.<method>`.
+ */
+export function callGameIndex<T>(method: string, ...params: unknown[]): Promise<T> {
+  if (status.state !== 'ready') return Promise.reject(new Error('Index not ready'))
+  return call<T>(method, ...params)
 }
 
 // ---------------------------------------------------------------------------
@@ -176,7 +201,11 @@ async function flushChanges(): Promise<void> {
   const paths = [...changed]
   changed.clear()
   try {
-    const r = await call<{ changed: boolean; fallback?: string }>('refreshFiles', paths)
+    const r = await call<{ changed: boolean; fallback?: string; gfx?: string[] }>(
+      'refreshFiles',
+      paths
+    )
+    if (r.gfx?.length) refreshImages(r.gfx)
     // Too much changed to take in piecemeal (or the layering itself changed): build afresh
     if (r.fallback && built) {
       const { gameDir, mod } = built

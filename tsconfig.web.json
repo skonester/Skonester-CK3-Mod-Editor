@@ -10,6 +10,7 @@
     "noEmit": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
     "paths": {
       "@shared/*": ["./src/shared/*"],
       "@/*": ["./src/renderer/src/*"]
@@ -18,7 +19,8 @@
   "include": [
     "src/renderer/**/*",
     "src/shared/**/*",
-    "src/crusaderpope/shared/api.ts",
+    "src/crusaderpope/renderer/**/*",
+    "src/crusaderpope/shared/**/*",
     "src/preload/index.d.ts"
   ]
 }
