@@ -10,6 +10,8 @@
  * shaders compiled for WebGL on a pool of threads — under the same method
  * names CrusaderPope's own worker uses, so its renderer code calls them as is —
  * and its StoryBuilder: script read as plain language (cards, event stories).
+ * It also answers the explorer's queries: types, search, the reference graph
+ * and characters filtered by their facts at a date.
  */
 import { parentPort, Worker } from 'node:worker_threads'
 import { createHash } from 'node:crypto'
@@ -27,13 +29,17 @@ import { RASTER_VERSION, readRasterMeta, type RasterMeta } from '../crusaderpope
 import { mapTerrain } from '../crusaderpope/main/map/terrain'
 import { mapOverlays } from '../crusaderpope/main/map/overlays'
 import { mapCharacter, mapCharacters } from '../crusaderpope/main/map/edit-characters'
+import { DATE_KEY } from '../crusaderpope/main/map/history'
+import { dateNum } from '../crusaderpope/main/portraits/modifiers'
 import { coatOfArms } from '../crusaderpope/main/coa/coa'
 import { fxFingerprint, ShaderStore } from '../crusaderpope/main/shaders/store'
 import { ShaderPool } from '../crusaderpope/main/shaders/pool'
 import { StoryBuilder } from '../crusaderpope/main/describe/stories'
 import { LocExamples } from '../crusaderpope/main/describe/locExamples'
 import type {
+  CharacterFilter,
   CoaKind,
+  GraphOptions,
   IndexStatus,
   ModInfo as IndexMod,
   PortraitRequest,
@@ -403,6 +409,24 @@ function references(
 
 const entity = (type: string, name: string): Entity | undefined => index?.get(type, name)
 
+/**
+ * The bookmarks' start dates, earliest first — what the game and the loaded
+ * mods offer to start at (as the map reads them). The first is the date the
+ * views default to.
+ */
+function bookmarkDates(): string[] {
+  const idx = index
+  if (!idx) return []
+  const dates = new Set<string>()
+  for (const key of idx.names('bookmarks/bookmarks')) {
+    const e = idx.get('bookmarks/bookmarks', key)
+    const node = e && idx.defNode(e)?.node
+    const d = Array.isArray(node?.v) ? node.v.find((c) => c.k === 'start_date' && typeof c.v === 'string') : undefined
+    if (d && DATE_KEY.test(d.v as string)) dates.add(d.v as string)
+  }
+  return [...dates].sort((a, b) => dateNum(a)! - dateNum(b)!)
+}
+
 const handlers: Record<string, (...args: never[]) => unknown> = {
   build: (req: BuildRequest) => build(req),
   refreshFiles: (paths: string[]) => refreshFiles(paths),
@@ -423,6 +447,18 @@ const handlers: Record<string, (...args: never[]) => unknown> = {
   locEntry: (key: string) => index?.locEntry(key) ?? null,
   newEntryInfo: (type: string, ns?: string) => index?.newEntryInfo(type, ns) ?? null,
   layouts: () => index?.layouts() ?? null,
+  // Browsing the whole index: its types (with the game's .info docs), any entry by name, what links to what
+  types: () => index?.types() ?? [],
+  typeDoc: (type: string) => index?.typeDoc(type) ?? [],
+  search: (
+    q: string,
+    opts?: { limit?: number; types?: string[]; text?: boolean; modOnly?: boolean; noRemoved?: boolean }
+  ) => index?.search(q, opts) ?? [],
+  graph: (type: string, name: string, opts: GraphOptions) =>
+    index?.graph(type, name, opts.depth, opts.excludeTypes, opts.onlyTypes, opts.maxNodes) ?? {
+      nodes: [],
+      edges: []
+    },
   list: (type: string) => index?.list(type) ?? [],
   childrenOf: (type: string, holderType: string, holder: string) =>
     index?.childrenOf(type, holderType, holder) ?? [],
@@ -478,6 +514,10 @@ const handlers: Record<string, (...args: never[]) => unknown> = {
   mapCharacter: (id: string, date: string) =>
     index && characters ? mapCharacter(index, characters, id, date) : undefined,
   searchCharacters: (q: string, limit?: number) => characters?.search(q, limit) ?? [],
+  // Historical characters by their facts at a date (the character list's fact filters)
+  characterFilter: (filter: CharacterFilter) => characters?.filter(filter) ?? [],
+  characterFacets: () => characters?.facets() ?? { cultures: [], faiths: [], religions: [], traits: [] },
+  bookmarkDates: () => bookmarkDates(),
   // Script read as plain language: an entry's card (with its event or on_action story)
   card: (type: string, name: string) => {
     const e = entity(type, name)

@@ -37,13 +37,13 @@ for the lines listed in [src/crusaderpope/PATCHES.md](src/crusaderpope/PATCHES.m
   on_action stories)
 - `main/mods/` — mod management (mod lists, launcher playsets, dlc_load.json, new mods,
   packing), the undo journal, the DNA save and editing the active mod
-- `main/gameDir.ts`, `main/detect.ts`, `main/cacheWriter.ts`, `main/scriptKeysWorker.ts` —
-  helpers
+- `main/gameDir.ts`, `main/detect.ts`, `main/cacheWriter.ts` — helpers
 - `renderer/src/three/` — three.js materials, lights and the game-shader runtime
 - `renderer/src/components/map/` (the `.ts` modules) — the 2D and 3D map renderers,
   camera, labels and overlays
 - `renderer/src/components/coa-draw.ts`, `renderer/src/{api,img,revision,graphics,pending}`
   — the renderer-side helpers those use
+- `renderer/src/typeColors.ts` — the colour of each type of entry in the reference graph
 - `shared/` — shared types, shader requests, map composition and script formatting
 
 Code adapted from CrusaderPope outside that folder (rebuilt on this app's UI):
@@ -52,8 +52,11 @@ PortraitViewer), `components/models/` (its ModelView and MeshViewer),
 `components/map/` (its MapView, Map3DView, Legend, DateControl, Minimap, MapPanel and
 mode bar, MapEdit, MapEditTitle and MapEditChooser), `components/story/` (its
 StoryView and rich text, read-only), `components/Barbershop.tsx`, `components/mods/`
-and `pages/ModsPage.tsx` (its ModsView and ModDialogs), `src/main/blender.ts` (its
-blender/ipc.ts), `src/main/modsIpc.ts` (its mods/ipc.ts), `src/main/modsHost.ts` (its
+and `pages/ModsPage.tsx` (its ModsView and ModDialogs), `components/explore/` (its
+search box, type pages, GraphView and PortraitReportView), `components/CharacterFactFilters.tsx`
+(its CharacterFilters), `components/models/` `ImageGrid`, `AssetMenu` and `ImageCropDialog`
+(its image Gallery, AssetMenu and ImageCrop), `src/main/blender.ts` (its
+blender/ipc.ts, the asset menu's handlers included), `src/main/modsIpc.ts` (its mods/ipc.ts), `src/main/modsHost.ts` (its
 ModsHost, over this app's settings) and `src/main/gameIndexWorker.ts` (its
 indexWorker.ts).
 

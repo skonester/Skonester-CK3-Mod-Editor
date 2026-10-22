@@ -24,6 +24,7 @@ import { useApp } from '../AppContext'
 import ModPicker from '../components/ModPicker'
 import CharacterCreatePanel from '../components/CharacterCreatePanel'
 import CharacterDetailPanel from '../components/CharacterDetailPanel'
+import CharacterFactFilters, { activeCriteria } from '../components/CharacterFactFilters'
 import DateRangeFilterField from '../components/DateRangeFilterField'
 import DebouncedInput from '../components/DebouncedInput'
 import EntryHistoryBar from '../components/EntryHistoryBar'
@@ -60,6 +61,7 @@ import type {
   EntryRef,
   ReferenceData
 } from '@shared/types'
+import type { CharacterFilter } from '@crusaderpope/shared/api'
 import type { CharacterSearch } from '../router'
 
 /**
@@ -253,7 +255,7 @@ function ColumnFilter({
 
 export default function CharacterEditorPage(): React.JSX.Element {
   // (dataRevision: files of the mod changed under the editor — an undo, a map edit: read again)
-  const { settings, selectedMod, dataRevision } = useApp()
+  const { settings, selectedMod, dataRevision, indexStatus } = useApp()
   const { isMobile, setOpen, setOpenMobile } = useSidebar()
   const [characters, setCharacters] = useState<CharacterSummary[]>([])
   const [loading, setLoading] = useState(false)
@@ -299,6 +301,43 @@ export default function CharacterEditorPage(): React.JSX.Element {
     return (id: string): string | null => names.get(id.toLowerCase()) ?? null
   }, [refData])
   const history = useEntryHistory('characters')
+
+  // Facts at a date from the game index (alive, faith, rank …): the ids that
+  // match, or null while no fact filters
+  const [facts, setFacts] = useState<CharacterFilter>({})
+  const [factIds, setFactIds] = useState<Set<string> | null>(null)
+  const indexRevision = indexStatus.state === 'ready' ? (indexStatus.revision ?? 0) : null
+  // Facts are taken at the first bookmark unless a date is given — the mod's, not 1066's
+  const [bookmarks, setBookmarks] = useState<string[] | undefined>(undefined)
+  const startDate = bookmarks?.[0]
+  useEffect(() => {
+    if (indexRevision === null) return
+    let live = true
+    window.ck3tools.getBookmarkDates().then(
+      (d) => live && setBookmarks(d),
+      () => {}
+    )
+    return () => {
+      live = false
+    }
+  }, [indexRevision])
+  useEffect(() => {
+    if (activeCriteria(facts) === 0 || indexRevision === null) {
+      setFactIds(null)
+      return
+    }
+    let live = true
+    void window.api
+      .characterFilter({ ...facts, date: facts.date ?? startDate })
+      .then((ids) => live && setFactIds(new Set(ids)))
+    return () => {
+      live = false
+    }
+  }, [facts, startDate, indexRevision])
+  const listed = useMemo(
+    () => (factIds ? characters.filter((c) => factIds.has(c.id)) : characters),
+    [characters, factIds]
+  )
 
   // The panel edits `{ draft, original }`; the store also carries the ref the
   // "Unsaved" chip reads by, which the page is the one that knows.
@@ -377,7 +416,7 @@ export default function CharacterEditorPage(): React.JSX.Element {
   const table = useTable({
     features,
     columns,
-    data: characters,
+    data: listed,
     globalFilterFn: (row, columnId, filterValue) =>
       String(row.getValue(columnId) ?? '')
         .toLowerCase()
@@ -386,11 +425,13 @@ export default function CharacterEditorPage(): React.JSX.Element {
   })
 
   const globalFilter = (table.state.globalFilter as string | undefined) ?? ''
-  const filtered = globalFilter !== '' || table.state.columnFilters.length > 0
+  const filtered =
+    globalFilter !== '' || table.state.columnFilters.length > 0 || activeCriteria(facts) > 0
 
   const clearFilters = (): void => {
     table.resetColumnFilters(true)
     table.setGlobalFilter('')
+    setFacts({})
   }
 
   if (!selectedMod) {
@@ -497,6 +538,7 @@ export default function CharacterEditorPage(): React.JSX.Element {
                   value={globalFilter}
                   onChange={(v) => table.setGlobalFilter(v)}
                 />
+                <CharacterFactFilters value={facts} onChange={setFacts} bookmarks={bookmarks} />
                 {filtered && (
                   <Button variant="ghost" size="sm" onClick={clearFilters}>
                     <FilterX />

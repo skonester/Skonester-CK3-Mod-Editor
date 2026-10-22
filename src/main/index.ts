@@ -134,7 +134,14 @@ const GAME_INDEX_QUERIES = [
   'tooltip',
   'usageAll',
   'dnaEditor',
-  'list'
+  'list',
+  'types',
+  'typeDoc',
+  'search',
+  'graph',
+  'characterFilter',
+  'characterFacets',
+  'bookmarkDates'
 ]
 /** …and the map's, which build into the map cache folder main owns */
 const MAP_QUERIES = ['mapInfo', 'mapStatic', 'mapDated', 'mapTerrain', 'mapOverlays']

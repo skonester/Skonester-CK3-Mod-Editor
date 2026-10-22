@@ -240,8 +240,13 @@ const mapRoute = createRoute({
   })
 })
 
-/** Deep-link target for the model browser: the folder listed and the model file shown */
+/**
+ * Deep-link target for the model and image browser: which of the two, the
+ * folder listed and the file shown
+ */
 export interface ModelsSearch {
+  /** absent: 3D models */
+  kind?: 'images'
   folder?: string
   path?: string
 }
@@ -251,6 +256,7 @@ const modelsRoute = createRoute({
   path: '/models',
   component: ModelsPage,
   validateSearch: (search: Record<string, unknown>): ModelsSearch => ({
+    kind: search.kind === 'images' ? 'images' : undefined,
     folder: typeof search.folder === 'string' ? search.folder : undefined,
     path: typeof search.path === 'string' ? search.path : undefined
   })

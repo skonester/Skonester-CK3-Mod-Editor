@@ -384,6 +384,7 @@ const api = {
     full?: { direction: 'incoming' | 'outgoing'; type: string }
   ): Promise<EntityReferences | null> =>
     ipcRenderer.invoke('index:references', type, name, limit, full),
+  getBookmarkDates: (): Promise<string[]> => ipcRenderer.invoke('index:bookmarkDates'),
 
   detectEditors: (): Promise<EditorInfo[]> => ipcRenderer.invoke('editor:detect'),
   openInEditor: (file: string, line?: number): Promise<SaveResult> =>
@@ -442,7 +443,20 @@ const crusaderPopeApi = {
   dnaEditor: (type, name) => ipcRenderer.invoke('index:dnaEditor', type, name),
   saveDna: (req) => ipcRenderer.invoke('mods:saveDna', req),
   mapEdit: (req) => ipcRenderer.invoke('mods:mapEdit', req),
-  list: (type) => ipcRenderer.invoke('index:list', type)
+  list: (type) => ipcRenderer.invoke('index:list', type),
+  types: () => ipcRenderer.invoke('index:types'),
+  typeDoc: (type) => ipcRenderer.invoke('index:typeDoc', type),
+  search: (q, opts) => ipcRenderer.invoke('index:search', q, opts),
+  graph: (type, name, opts) => ipcRenderer.invoke('index:graph', type, name, opts),
+  characterFilter: (filter) => ipcRenderer.invoke('index:characterFilter', filter),
+  characterFacets: () => ipcRenderer.invoke('index:characterFacets'),
+  exportAsset: (path, as, pdxmesh) => ipcRenderer.invoke('asset:export', path, as, pdxmesh),
+  assetOverride: (path, pdxmesh) => ipcRenderer.invoke('asset:override', path, pdxmesh),
+  removeAssetOverride: (path, pdxmesh) =>
+    ipcRenderer.invoke('asset:removeOverride', path, pdxmesh),
+  pickImage: (title) => ipcRenderer.invoke('asset:pickImage', title),
+  replaceAsset: (path, pdxmesh, source) =>
+    ipcRenderer.invoke('asset:replace', path, pdxmesh, source)
 } satisfies Partial<CrusaderPopeApi>
 
 contextBridge.exposeInMainWorld('api', crusaderPopeApi)

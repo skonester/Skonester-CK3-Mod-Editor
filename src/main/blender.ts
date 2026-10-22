@@ -1,15 +1,21 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { mkdirSync, renameSync, writeFileSync } from 'fs'
-import { basename, dirname, isAbsolute, join, relative } from 'path'
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs'
+import { basename, dirname, extname, isAbsolute, join, relative } from 'path'
 import { Worker } from 'worker_threads'
 import type {
+  AssetOverride,
+  ImageSource,
   ModelExportResult,
   ModelImportPlan,
-  ModelImportResult
+  ModelImportResult,
+  PickedImage
 } from '../crusaderpope/shared/api'
+import type { ModInfo } from '@shared/types'
 import type { ImportOutcome, ModelExportPlan } from '../crusaderpope/main/blender/types'
+import { decodeDds } from '../crusaderpope/main/images/dds'
+import { encodePng } from '../crusaderpope/main/images/png'
 import { callGameIndex, gameIndexLayering } from './gameIndex'
-import { recordWrite } from '../crusaderpope/main/mods/undo'
+import { recordRemove, recordWrite } from '../crusaderpope/main/mods/undo'
 import { modId, modsHost, undoable } from './modsHost'
 
 /**
@@ -20,6 +26,11 @@ import { modId, modsHost, undoable } from './modsHost'
  * changed, written into the selected mod at their game paths (a mod's file of
  * the same path replaces the game's). The conversion runs on CrusaderPope's
  * blenderWorker thread; an import is one undoable change.
+ *
+ * Also an asset's menu (textures, meshes): export its file as it is (a texture
+ * as PNG), replace it in the selected mod with a file of the user's —
+ * converted to the asset's format, saved under its path and name — or move
+ * the mod's own copy to the recycle bin so the game's counts again.
  */
 
 /** Folders used last this session: exports go there again, imports start there */
@@ -118,34 +129,19 @@ async function exportGltf(
   return runJob<ModelExportResult>({ op: 'export', gameDir, mods, plan: model, file })
 }
 
-async function importGltf(
-  e: Electron.IpcMainInvokeEvent,
-  path: string,
-  pdxmesh?: string
-): Promise<ModelImportResult | null> {
-  const { gameDir, mods, mod: selected } = layering()
-  const { plan, root, model } = await importPlan(path, pdxmesh)
-  if (plan.problem || !root || !model || !selected) throw new Error(plan.problem ?? 'Nothing to import into.')
-  const win = BrowserWindow.fromWebContents(e.sender)!
-  const r = await dialog.showOpenDialog(win, {
-    title: `Import from Blender into ${selected.name} — ${model.mesh}`,
-    defaultPath: lastImportDir || lastExportDir || app.getPath('documents'),
-    filters: [{ name: 'glTF 2.0', extensions: ['glb', 'gltf'] }],
-    properties: ['openFile']
-  })
-  const source = r.canceled ? undefined : r.filePaths[0]
-  if (!source) return null
-  lastImportDir = dirname(source)
-  const out = await runJob<ImportOutcome>({
-    op: 'import',
-    gameDir,
-    mods,
-    plan: model,
-    file: source,
-    activeMod: modId(selected.file)
-  })
+/** The selected mod as an import target, or why there is none */
+function targetMod(): { root: string; mod: ModInfo } {
+  const { mod } = layering()
+  if (!mod?.path || !mod.pathExists) throw new Error('Select a mod to write into.')
+  return { root: mod.path, mod }
+}
 
-  // Every path checked before the first write
+/**
+ * Writes a conversion's files into the selected mod at their game paths —
+ * every path checked before the first write, each write recorded for undo.
+ * The mod folder's watcher hands the files to the game index.
+ */
+function writeIntoMod(root: string, mod: ModInfo, source: string, out: ImportOutcome): ModelImportResult {
   const files: ModelImportResult['files'] = out.writes.map((w) => {
     const abs = modFile(root, w.rel)
     if (!abs) throw new Error(`${w.rel} is not a path inside the mod folder.`)
@@ -157,9 +153,8 @@ async function importGltf(
       return w.data
     })
   )
-  // (the mod folder's watcher hands the files to the game index)
   return {
-    mod: { id: modId(selected.file), name: selected.name, loaded: true },
+    mod: { id: modId(mod.file), name: mod.name, loaded: true },
     source,
     files,
     shapes: out.shapes,
@@ -170,6 +165,183 @@ async function importGltf(
   }
 }
 
+/** "Import from Blender": a glTF/GLB — chosen now, or `given` — converted into the model's mesh and textures */
+async function importGltf(
+  e: Electron.IpcMainInvokeEvent,
+  path: string,
+  pdxmesh?: string,
+  given?: string
+): Promise<ModelImportResult | null> {
+  const { gameDir, mods, mod: selected } = layering()
+  const { plan, root, model } = await importPlan(path, pdxmesh)
+  if (plan.problem || !root || !model || !selected) throw new Error(plan.problem ?? 'Nothing to import into.')
+  let source = given
+  if (!source) {
+    const win = BrowserWindow.fromWebContents(e.sender)!
+    const r = await dialog.showOpenDialog(win, {
+      title: `Import from Blender into ${selected.name} — ${model.mesh}`,
+      defaultPath: lastImportDir || lastExportDir || app.getPath('documents'),
+      filters: [{ name: 'glTF 2.0', extensions: ['glb', 'gltf'] }],
+      properties: ['openFile']
+    })
+    source = r.canceled ? undefined : r.filePaths[0]
+  }
+  if (!source) return null
+  lastImportDir = dirname(source)
+  const out = await runJob<ImportOutcome>({
+    op: 'import',
+    gameDir,
+    mods,
+    plan: model,
+    file: source,
+    activeMod: modId(selected.file)
+  })
+  return writeIntoMod(root, selected, source, out)
+}
+
+// ---------------------------------------------------------------------------
+// An asset's menu (textures, meshes): export it, replace it in the mod with a
+// file of one's own, or take the mod's copy away again
+// ---------------------------------------------------------------------------
+
+/** The file an asset stands for: an image or a .mesh as it is, an .asset's pdxmesh's .mesh */
+const fileOf = async (path: string, pdxmesh?: string): Promise<string> =>
+  /\.asset$/i.test(path) ? (await exportPlan(path, pdxmesh)).mesh : path
+
+/** An asset's file as it is, a texture as PNG, or a mesh as glTF for Blender (save dialog; null: cancelled) */
+async function exportAsset(
+  e: Electron.IpcMainInvokeEvent,
+  path: string,
+  as: 'original' | 'png' | 'gltf',
+  pdxmesh?: string
+): Promise<{ file: string; gltf?: ModelExportResult } | null> {
+  if (as === 'gltf') {
+    const r = await exportGltf(e, path, pdxmesh)
+    return r && { file: r.gltf, gltf: r }
+  }
+  const { gameDir, mods } = layering()
+  const rel = await fileOf(path, pdxmesh)
+  const name = as === 'png' ? basename(rel).replace(/\.\w+$/, '.png') : basename(rel)
+  const ext = as === 'png' ? 'png' : extname(rel).slice(1) || '*'
+  const win = BrowserWindow.fromWebContents(e.sender)!
+  const r = await dialog.showSaveDialog(win, {
+    title: as === 'png' ? `Export ${basename(rel)} as PNG` : `Export ${basename(rel)}`,
+    defaultPath: join(lastExportDir || app.getPath('documents'), name),
+    filters: [{ name: as === 'png' ? 'PNG image' : `${ext.toUpperCase()} file`, extensions: [ext] }],
+    properties: ['createDirectory', 'showOverwriteConfirmation']
+  })
+  if (r.canceled || !r.filePath) return null
+  lastExportDir = dirname(r.filePath)
+  await runJob({ op: 'exportFile', gameDir, mods, rel, as, file: r.filePath })
+  return { file: r.filePath }
+}
+
+/** The selected mod's own file for the asset, if it has one (null: no mod to write into) */
+async function assetOverride(path: string, pdxmesh?: string): Promise<AssetOverride | null> {
+  let target: ReturnType<typeof targetMod>
+  try {
+    target = targetMod()
+  } catch {
+    return null
+  }
+  const rel = await fileOf(path, pdxmesh)
+  const abs = modFile(target.root, rel)
+  return { rel, mod: target.mod.name, file: abs && existsSync(abs) ? abs : undefined }
+}
+
+/** Removes the selected mod's file for the asset (to the recycle bin): the game's counts again */
+async function removeAssetOverride(
+  path: string,
+  pdxmesh?: string
+): Promise<AssetOverride & { loaded: boolean }> {
+  const { root, mod } = targetMod()
+  const rel = await fileOf(path, pdxmesh)
+  const abs = modFile(root, rel)
+  if (!abs || !existsSync(abs)) throw new Error(`${mod.name} has no file ${rel}.`)
+  await recordRemove(modsHost, abs, async () => {
+    try {
+      await shell.trashItem(abs)
+    } catch {
+      unlinkSync(abs)
+    }
+  })
+  return { rel, mod: mod.name, file: abs, loaded: true }
+}
+
+/**
+ * An image of the user's for the crop dialog: a DDS comes decoded to PNG (the
+ * renderer can't show one), PNG / JPEG / WebP as they are.
+ */
+async function pickImage(e: Electron.IpcMainInvokeEvent, title?: string): Promise<PickedImage | null> {
+  const win = BrowserWindow.fromWebContents(e.sender)!
+  const r = await dialog.showOpenDialog(win, {
+    title: title ?? 'An image',
+    defaultPath: lastImportDir || app.getPath('pictures'),
+    filters: [{ name: 'Images (PNG, DDS, JPEG, WebP)', extensions: ['png', 'dds', 'jpg', 'jpeg', 'webp'] }],
+    properties: ['openFile']
+  })
+  const file = r.canceled ? undefined : r.filePaths[0]
+  if (!file) return null
+  lastImportDir = dirname(file)
+  const bytes = new Uint8Array(readFileSync(file))
+  const name = basename(file)
+  if (bytes[0] === 0x44 && bytes[1] === 0x44 && bytes[2] === 0x53 && bytes[3] === 0x20) {
+    const d = await decodeDds(bytes)
+    return { file, name, mime: 'image/png', data: new Uint8Array(encodePng(d.rgba, d.width, d.height)) }
+  }
+  const mime = /\.jpe?g$/i.test(name) ? 'image/jpeg' : /\.webp$/i.test(name) ? 'image/webp' : 'image/png'
+  return { file, name, mime, data: bytes }
+}
+
+/** A cropped image (PNG bytes from the crop dialog) as a file the conversion reads */
+function croppedFile(source: ImageSource): string {
+  const dir = join(app.getPath('temp'), 'ck3tools-crops')
+  mkdirSync(dir, { recursive: true })
+  const stem = (source.name ?? 'image').replace(/\.\w+$/, '').replace(/[^\w.-]+/g, '_')
+  const file = join(dir, `${stem}.png`)
+  writeFileSync(file, source.png!)
+  return file
+}
+
+/**
+ * Replaces an asset in the selected mod with a file of the user's — the crop
+ * dialog's PNG, a picked file, or one chosen now — converted to the asset's
+ * format and saved under its path and name. A glTF/GLB for a mesh is a Blender
+ * import.
+ */
+async function replaceAsset(
+  e: Electron.IpcMainInvokeEvent,
+  path: string,
+  pdxmesh?: string,
+  source?: ImageSource
+): Promise<ModelImportResult | null> {
+  const { gameDir, mods } = layering()
+  const { root, mod } = targetMod()
+  const rel = await fileOf(path, pdxmesh)
+  if (!modFile(root, rel)) throw new Error(`${rel} is not a path inside the mod folder.`)
+  const mesh = /\.mesh$/i.test(rel)
+  let file = source?.png ? croppedFile(source) : source?.file
+  if (!file) {
+    const win = BrowserWindow.fromWebContents(e.sender)!
+    const r = await dialog.showOpenDialog(win, {
+      title: `Replace ${rel} in ${mod.name} — saved under that name, converted where needed`,
+      defaultPath: lastImportDir || lastExportDir || app.getPath('documents'),
+      filters: mesh
+        ? [{ name: 'Meshes (.mesh, glTF 2.0)', extensions: ['mesh', 'gltf', 'glb'] }]
+        : [{ name: 'Images (PNG, DDS)', extensions: ['png', 'dds'] }],
+      properties: ['openFile']
+    })
+    file = r.canceled ? undefined : r.filePaths[0]
+  }
+  if (!file) return null
+  lastImportDir = dirname(file)
+  if (mesh && /\.(gltf|glb)$/i.test(file)) {
+    return importGltf(e, /\.asset$/i.test(path) ? path : rel, pdxmesh, file)
+  }
+  const out = await runJob<ImportOutcome>({ op: 'replaceFile', gameDir, mods, rel, file })
+  return writeIntoMod(root, mod, file, out)
+}
+
 export function registerBlenderIpc(): void {
   ipcMain.handle('model:export', (e, path: string, pdxmesh?: string) => exportGltf(e, path, pdxmesh))
   ipcMain.handle(
@@ -178,6 +350,17 @@ export function registerBlenderIpc(): void {
   )
   ipcMain.handle('model:import', (e, path: string, pdxmesh?: string) =>
     undoable(`Import into ${basename(path)}`, () => importGltf(e, path, pdxmesh))
+  )
+  ipcMain.handle('asset:export', (e, path: string, as: 'original' | 'png' | 'gltf', pdxmesh?: string) =>
+    exportAsset(e, path, as, pdxmesh)
+  )
+  ipcMain.handle('asset:override', (_e, path: string, pdxmesh?: string) => assetOverride(path, pdxmesh))
+  ipcMain.handle('asset:removeOverride', (_e, path: string, pdxmesh?: string) =>
+    undoable(`Removed ${basename(path)}`, () => removeAssetOverride(path, pdxmesh), 'asset')
+  )
+  ipcMain.handle('asset:pickImage', (e, title?: string) => pickImage(e, title))
+  ipcMain.handle('asset:replace', (e, path: string, pdxmesh?: string, source?: ImageSource) =>
+    undoable(`Replaced ${basename(path)}`, () => replaceAsset(e, path, pdxmesh, source), 'asset')
   )
   ipcMain.handle('shell:revealFile', (_e, file: string) => shell.showItemInFolder(file))
 }

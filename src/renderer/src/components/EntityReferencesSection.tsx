@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowRight, BookOpen, ChevronRight, Map as MapIcon, RotateCw } from 'lucide-react'
+import { ArrowRight, BookOpen, ChevronRight, Map as MapIcon, Network, RotateCw } from 'lucide-react'
 import { toast } from 'sonner'
 import type {
   EntityReferences,
@@ -239,7 +239,8 @@ export default function EntityReferencesSection({
   type,
   id
 }: {
-  type: IndexType
+  /** an editor's index type — or a game file's: an image or a model, by its path */
+  type: IndexType | 'images' | 'models'
   id: string
 }): React.JSX.Element {
   const { settings, indexStatus, reindex } = useApp()
@@ -295,6 +296,15 @@ export default function EntityReferencesSection({
         >
           <BookOpen />
           Read
+        </Button>
+        <Button
+          variant="outline"
+          size="xs"
+          title="What links to it and what it links to, as a graph"
+          onClick={() => read({ type, name: id }, 'graph')}
+        >
+          <Network />
+          Graph
         </Button>
         {onMap && (
           <Button

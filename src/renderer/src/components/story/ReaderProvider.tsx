@@ -1,9 +1,9 @@
 import { createContext, lazy, Suspense, useCallback, useContext, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, FileCode } from 'lucide-react'
+import { ArrowLeft, BookOpen, FileCode, Network, ScanFace } from 'lucide-react'
 import { toast } from 'sonner'
 import type { EntityKey } from '@crusaderpope/shared/api'
-import { editorTarget } from '@/lib/indexLinks'
+import { editorTarget, PORTRAIT_TYPES } from '@/lib/indexLinks'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
@@ -15,16 +15,29 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 
 // The describer's renderer reads CrusaderPope's bridge at load: lazy
 const StoryPane = lazy(() => import('./StoryPane'))
+// cytoscape only loads with the first graph shown
+const GraphView = lazy(() => import('../explore/GraphView'))
+const PortraitReport = lazy(() => import('../explore/PortraitReport'))
 
 const HIDDEN_KEY = 'reader.showHidden'
 
-/** Opens an entry in the reader: its script as plain language */
-const ReaderCtx = createContext<(entry: EntityKey) => void>(() => {})
+/**
+ * How the reader shows an entry: as plain language, as the graph of what it
+ * links to and from, or (characters, DNA) what its 3D portrait is built from
+ */
+export type ReaderView = 'read' | 'graph' | 'portrait'
 
-export const useReader = (): ((entry: EntityKey) => void) => useContext(ReaderCtx)
+type OpenReader = (entry: EntityKey, view?: ReaderView) => void
+
+/** Opens an entry in the reader: its script as plain language, or another view */
+const ReaderCtx = createContext<OpenReader>(() => {})
+
+export const useReader = (): OpenReader => useContext(ReaderCtx)
 
 /**
  * Where an entry is edited, if anywhere here: its editor's deep link — a mod
@@ -41,7 +54,9 @@ export async function editorFor(entry: EntityKey): Promise<ReturnType<typeof edi
  * The reader: a side sheet showing any entry the game index knows as plain
  * language — an event as a story, anything else as a card (CrusaderPope's
  * readable view). A link inside goes to the entry's editor when the app has
- * one, else reads it here, with Back to return.
+ * one, else reads it here, with Back to return. Its Graph view draws what the
+ * entry links to and from; Portrait (characters, DNA) what its 3D portrait is
+ * built from.
  */
 export default function ReaderProvider({
   children
@@ -50,6 +65,7 @@ export default function ReaderProvider({
 }): React.JSX.Element {
   const navigate = useNavigate()
   const [stack, setStack] = useState<EntityKey[]>([])
+  const [view, setView] = useState<ReaderView>('read')
   const [showHidden, setShowHidden] = useState(() => {
     try {
       return localStorage.getItem(HIDDEN_KEY) === '1'
@@ -58,8 +74,12 @@ export default function ReaderProvider({
     }
   })
   const entry = stack.at(-1)
+  const shown: ReaderView = view === 'portrait' && entry && !PORTRAIT_TYPES.has(entry.type) ? 'read' : view
 
-  const open = useCallback((e: EntityKey) => setStack([e]), [])
+  const open = useCallback<OpenReader>((e, v = 'read') => {
+    setStack([e])
+    setView(v)
+  }, [])
   const follow = useCallback(
     (e: EntityKey) => {
       void editorFor(e).then((target) => {
@@ -86,7 +106,18 @@ export default function ReaderProvider({
     <ReaderCtx.Provider value={open}>
       {children}
       <Sheet open={entry !== undefined} onOpenChange={(o) => !o && setStack([])}>
-        <SheetContent side="right" className="w-full gap-0 sm:max-w-2xl">
+        <SheetContent
+          side="right"
+          // (the sheet's own data-[side=right] width classes win over plain ones: same variant to replace them)
+          className={cn(
+            'gap-0 data-[side=right]:w-full',
+            shown === 'graph'
+              ? 'data-[side=right]:sm:max-w-[min(92vw,1400px)]'
+              : shown === 'portrait'
+                ? 'data-[side=right]:sm:max-w-4xl'
+                : 'data-[side=right]:sm:max-w-2xl'
+          )}
+        >
           <SheetHeader className="border-b">
             <div className="flex items-center gap-2 pr-8">
               {stack.length > 1 && (
@@ -101,7 +132,13 @@ export default function ReaderProvider({
               )}
               <div className="min-w-0 flex-1">
                 <SheetTitle className="truncate font-mono text-sm">{entry?.name}</SheetTitle>
-                <SheetDescription>Read as plain language</SheetDescription>
+                <SheetDescription>
+                  {shown === 'graph'
+                    ? 'What it links to and from'
+                    : shown === 'portrait'
+                      ? 'What its 3D portrait is built from'
+                      : 'Read as plain language'}
+                </SheetDescription>
               </div>
               <Button
                 variant="outline"
@@ -113,7 +150,25 @@ export default function ReaderProvider({
                 Script
               </Button>
             </div>
-            <div className="flex items-center gap-2">
+            <Tabs value={shown} onValueChange={(v) => setView(v as ReaderView)}>
+              <TabsList>
+                <TabsTrigger value="read">
+                  <BookOpen />
+                  Read
+                </TabsTrigger>
+                <TabsTrigger value="graph">
+                  <Network />
+                  Graph
+                </TabsTrigger>
+                {entry && PORTRAIT_TYPES.has(entry.type) && (
+                  <TabsTrigger value="portrait">
+                    <ScanFace />
+                    Portrait
+                  </TabsTrigger>
+                )}
+              </TabsList>
+            </Tabs>
+            <div className={cn('flex items-center gap-2', shown !== 'read' && 'hidden')}>
               <Switch
                 id="reader-hidden"
                 checked={showHidden}
@@ -131,15 +186,21 @@ export default function ReaderProvider({
               </Label>
             </div>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className={cn('min-h-0 flex-1 p-4', shown === 'graph' ? 'flex flex-col' : 'overflow-y-auto')}>
             {entry && (
               <Suspense fallback={<Spinner />}>
-                <StoryPane
-                  key={`${entry.type}:${entry.name}`}
-                  entry={entry}
-                  follow={follow}
-                  showHidden={showHidden}
-                />
+                {shown === 'graph' ? (
+                  <GraphView key={`${entry.type}:${entry.name}`} entry={entry} onOpen={follow} />
+                ) : shown === 'portrait' ? (
+                  <PortraitReport key={`${entry.type}:${entry.name}`} entry={entry} />
+                ) : (
+                  <StoryPane
+                    key={`${entry.type}:${entry.name}`}
+                    entry={entry}
+                    follow={follow}
+                    showHidden={showHidden}
+                  />
+                )}
               </Suspense>
             )}
           </div>

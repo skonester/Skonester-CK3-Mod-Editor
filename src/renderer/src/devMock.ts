@@ -1393,6 +1393,7 @@ const mock: Ck3ToolsApi = {
   getGameIndexStatus: async () => ({ state: 'idle' }),
   onGameIndexStatus: () => () => {},
   getReferences: async () => null,
+  getBookmarkDates: async () => [],
   detectEditors: async () => [
     { name: 'Notepad', path: 'C:\\Windows\\notepad.exe' },
     { name: 'VS Code', path: 'C:\\Mock\\Code.exe' }

@@ -15,6 +15,7 @@ import { useApp } from '../../AppContext'
 import FormSection from '../FormSection'
 import Hint from '../Hint'
 import ModelViewer from './ModelViewer'
+import AssetMenu from './AssetMenu'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -39,12 +40,24 @@ const fmt = (x: number): string => (Math.abs(x) >= 10 ? x.toFixed(0) : x.toFixed
 const thumbChannel = (role: string): string | undefined =>
   role === 'diffuse' ? undefined : role === 'properties' ? 'a' : 'rgb'
 
-function Textures({ textures }: { textures: ModelTexture[] }): React.JSX.Element {
+/** A model's textures; one with a file opens in the image view */
+function Textures({
+  textures,
+  onOpen
+}: {
+  textures: ModelTexture[]
+  onOpen: (path: string) => void
+}): React.JSX.Element {
   return (
     <div className="flex flex-wrap gap-2">
       {textures.map((t, i) => (
         <figure key={i} className="w-24" title={t.path ?? `Not found: ${t.ref}`}>
-          <div className="flex size-24 items-center justify-center overflow-hidden rounded-md border bg-muted/40">
+          <button
+            type="button"
+            disabled={!t.path}
+            onClick={() => t.path && onOpen(t.path)}
+            className="flex size-24 items-center justify-center overflow-hidden rounded-md border bg-muted/40 enabled:hover:border-primary"
+          >
             {t.path ? (
               <GameImg
                 path={t.path}
@@ -55,7 +68,7 @@ function Textures({ textures }: { textures: ModelTexture[] }): React.JSX.Element
             ) : (
               <span className="text-xs text-muted-foreground">missing</span>
             )}
-          </div>
+          </button>
           <figcaption className="mt-1 truncate text-xs">
             <span className="text-muted-foreground">{t.role}</span> ·{' '}
             {base(t.path ?? t.ref).replace(/\.(dds|png|tga)$/i, '')}
@@ -167,6 +180,9 @@ function BlenderBar({ path, pdxmesh }: { path: string; pdxmesh?: string }): Reac
       {plan?.mod && !plan.problem && (
         <span className="text-xs text-muted-foreground">into {plan.mod.name}</span>
       )}
+      <span className="ml-auto">
+        <AssetMenu path={path} pdxmesh={pdxmesh} />
+      </span>
     </div>
   )
 }
@@ -266,7 +282,7 @@ function AssetBody({
       )}
       {info.textures.length > 0 && (
         <FormSection title={`Textures · ${info.textures.length}`}>
-          <Textures textures={info.textures} />
+          <Textures textures={info.textures} onOpen={onOpenModel} />
         </FormSection>
       )}
     </>
@@ -366,7 +382,7 @@ function MeshBody({
       )}
       {textures.length > 0 && (
         <FormSection title={`Textures · ${textures.length}`}>
-          <Textures textures={textures} />
+          <Textures textures={textures} onOpen={onOpenModel} />
         </FormSection>
       )}
       {info.bones.length > 0 && (

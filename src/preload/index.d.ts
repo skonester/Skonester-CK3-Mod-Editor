@@ -332,6 +332,8 @@ export interface Ck3ToolsApi {
     limit?: number,
     full?: { direction: 'incoming' | 'outgoing'; type: string }
   ) => Promise<EntityReferences | null>
+  /** The bookmarks' start dates (y.m.d), earliest first; rejects while the index isn't ready */
+  getBookmarkDates: () => Promise<string[]>
   detectEditors: () => Promise<EditorInfo[]>
   openInEditor: (file: string, line?: number) => Promise<SaveResult>
   pickDirectory: (title: string, kind: 'game' | 'mod') => Promise<string | null>

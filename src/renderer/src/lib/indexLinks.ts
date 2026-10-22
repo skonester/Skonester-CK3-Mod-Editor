@@ -31,6 +31,9 @@ export function editorTarget(type: string, name: string, def?: IndexDef): Editor
   return to ? { to, search: { id: name } } : null
 }
 
+/** Index types the game draws a 3D portrait for (the reader's Portrait view) */
+export const PORTRAIT_TYPES = new Set(['characters', 'dna_data', 'bookmark_portraits'])
+
 /** "common/landed_titles/malta_titles.txt", 482 → "malta_titles.txt:482" */
 export function siteLabel(file: string, line: number): string {
   return `${file.slice(file.lastIndexOf('/') + 1)}:${line}`

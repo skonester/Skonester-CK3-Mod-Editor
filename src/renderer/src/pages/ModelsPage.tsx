@@ -1,18 +1,23 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { Box, Folder } from 'lucide-react'
 import type { GalleryFolder, ModelFolderItem } from '@crusaderpope/shared/api'
 import { useApp } from '../AppContext'
 import { modTouchLabel } from '@/lib/indexLinks'
+import { assetTarget } from '@/lib/assetLinks'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Spinner } from '@/components/ui/spinner'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 
 // three.js, the game-shader code and the Blender bar load with the first model opened
 const ModelDetail = lazy(() => import('../components/models/ModelDetail'))
+// (CrusaderPope's image helpers read its bridge at load, as the model views do)
+const ImageGrid = lazy(() => import('../components/models/ImageGrid'))
+const ImageDetail = lazy(() => import('../components/models/ImageDetail'))
 // (CrusaderPope's bridge is read at load: imported only once the preload has run)
 const bridge = (): typeof window.api => window.api
 
@@ -43,14 +48,19 @@ function Thumb({ path }: { path?: string }): React.JSX.Element {
 }
 
 /**
- * Every 3D model the game and the selected mod load — gfx/ .asset and .mesh
- * files by folder — with a preview drawn with the game's shaders, what each is
- * made of, and the Blender round trip (export as glTF, import back into the
- * mod). Ported from CrusaderPope's model gallery.
+ * Every 3D model and image the game and the selected mod load, by folder:
+ * gfx/ .asset and .mesh files with a preview drawn with the game's shaders,
+ * what each is made of and the Blender round trip (export as glTF, import
+ * back into the mod); textures and icons as thumbnails, each with the models
+ * using it. Any of them can be exported, or replaced in the mod with a file
+ * of one's own. Ported from CrusaderPope's model and image galleries.
  */
 export default function ModelsPage(): React.JSX.Element {
   const { indexStatus } = useApp()
-  const { folder, path } = useSearch({ from: '/models' })
+  const { kind, folder, path } = useSearch({ from: '/models' })
+  const images = kind === 'images'
+  const [imageCount, setImageCount] = useState<number | null>(null)
+  const onImageCount = useCallback((n: number | null) => setImageCount(n), [])
   const navigate = useNavigate()
   const revision = indexStatus.state === 'ready' ? (indexStatus.revision ?? 0) : null
   const [folders, setFolders] = useState<GalleryFolder[] | null>(null)
@@ -61,17 +71,18 @@ export default function ModelsPage(): React.JSX.Element {
   useEffect(() => {
     if (revision === null) return
     let live = true
+    setFolders(null)
     void bridge()
-      .fileFolders('models')
+      .fileFolders(images ? 'images' : 'models')
       .then((f) => live && setFolders(f))
     return () => {
       live = false
     }
-  }, [revision])
+  }, [revision, images])
 
   useEffect(() => {
     setItems(null)
-    if (revision === null || !folder) return
+    if (revision === null || !folder || images) return
     let live = true
     void bridge()
       .modelFolder(folder)
@@ -79,7 +90,7 @@ export default function ModelsPage(): React.JSX.Element {
     return () => {
       live = false
     }
-  }, [folder, revision])
+  }, [folder, revision, images])
 
   const shownFolders = useMemo(() => {
     const q = folderFilter.trim().toLowerCase()
@@ -91,10 +102,9 @@ export default function ModelsPage(): React.JSX.Element {
   }, [items, itemFilter])
 
   const go = (next: { folder?: string; path?: string }): void =>
-    void navigate({ to: '/models', search: { folder, path, ...next } })
-  /** A model linked from another (an asset's mesh file): its folder opens with it */
-  const openModel = (p: string): void =>
-    void navigate({ to: '/models', search: { folder: p.slice(0, p.lastIndexOf('/')), path: p } })
+    void navigate({ to: '/models', search: { kind, folder, path, ...next } })
+  /** A model or image linked from another (an asset's mesh file, a texture's model): its folder opens with it */
+  const openModel = (p: string): void => void navigate(assetTarget(p))
 
   if (revision === null) {
     return (
@@ -109,8 +119,21 @@ export default function ModelsPage(): React.JSX.Element {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="px-6 pt-5 pb-3">
-        <h1 className="font-heading text-2xl font-semibold">3D Models</h1>
+      <header className="flex items-center gap-4 px-6 pt-5 pb-3">
+        <h1 className="font-heading text-2xl font-semibold">{images ? 'Images' : '3D Models'}</h1>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          value={images ? 'images' : 'models'}
+          onValueChange={(v) =>
+            v &&
+            void navigate({ to: '/models', search: v === 'images' ? { kind: 'images' } : {} })
+          }
+        >
+          <ToggleGroupItem value="models">3D Models</ToggleGroupItem>
+          <ToggleGroupItem value="images">Images</ToggleGroupItem>
+        </ToggleGroup>
       </header>
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 border-t">
         <ResizablePanel defaultSize="22%" minSize="14%" className="flex min-h-0 flex-col gap-2 p-3">
@@ -160,10 +183,26 @@ export default function ModelsPage(): React.JSX.Element {
                 className="h-8"
                 value={itemFilter}
                 onChange={(e) => setItemFilter(e.target.value)}
-                placeholder={`Filter ${items?.length ?? ''} models…`}
+                placeholder={
+                  images
+                    ? `Filter ${imageCount ?? ''} images…`
+                    : `Filter ${items?.length ?? ''} models…`
+                }
               />
               <div className="min-h-0 flex-1 overflow-y-auto">
-                {items === null && <Spinner className="m-2" />}
+                {images && revision !== null && (
+                  <Suspense fallback={<Spinner className="m-2" />}>
+                    <ImageGrid
+                      folder={folder}
+                      selected={path}
+                      filter={itemFilter}
+                      revision={revision}
+                      onPick={(p) => go({ path: p })}
+                      onCount={onImageCount}
+                    />
+                  </Suspense>
+                )}
+                {!images && items === null && <Spinner className="m-2" />}
                 {shownItems.slice(0, ROWS).map((m) => {
                   const touch = modTouchLabel(m.touch)
                   return (
@@ -195,7 +234,7 @@ export default function ModelsPage(): React.JSX.Element {
                     </Button>
                   )
                 })}
-                {items !== null && shownItems.length === 0 && (
+                {!images && items !== null && shownItems.length === 0 && (
                   <p className="p-2 text-sm text-muted-foreground">No models here.</p>
                 )}
               </div>
@@ -207,10 +246,16 @@ export default function ModelsPage(): React.JSX.Element {
           <div className="h-full overflow-y-auto">
             {path ? (
               <Suspense fallback={<Spinner className="m-6" />}>
-                <ModelDetail path={path} onOpenModel={openModel} />
+                {images ? (
+                  <ImageDetail path={path} onOpenModel={openModel} />
+                ) : (
+                  <ModelDetail path={path} onOpenModel={openModel} />
+                )}
               </Suspense>
             ) : (
-              <p className="p-6 text-sm text-muted-foreground">Pick a model to see it in 3D.</p>
+              <p className="p-6 text-sm text-muted-foreground">
+                {images ? 'Pick an image.' : 'Pick a model to see it in 3D.'}
+              </p>
             )}
           </div>
         </ResizablePanel>

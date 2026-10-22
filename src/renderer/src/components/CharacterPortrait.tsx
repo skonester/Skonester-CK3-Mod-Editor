@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Maximize2, Scissors } from 'lucide-react'
+import { Maximize2, ScanFace, Scissors } from 'lucide-react'
 import type { PortraitData, PortraitRequest } from '@crusaderpope/shared/api'
 import { api } from '@crusaderpope/renderer/src/api'
 import { programFor } from '@crusaderpope/renderer/src/three/gameShader'
@@ -9,6 +9,7 @@ import { useApp } from '../AppContext'
 import Hint from './Hint'
 import { Swatch } from './Swatch'
 import Barbershop from './Barbershop'
+import { useReader } from './story/ReaderProvider'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -247,6 +248,7 @@ export default function CharacterPortrait({
   const [data, setData] = useState<PortraitData | null>(null)
   const [big, setBig] = useState(false)
   const [shop, setShop] = useState(false)
+  const read = useReader()
   const worn = data?.accessories
     .filter((a) => !/^(eye|teeth|eyelashes)_accessory$/.test(a.gene))
     .map((a) => `${a.gene}: ${a.accessory}`)
@@ -286,18 +288,28 @@ export default function CharacterPortrait({
       {data && (
         <>
           <LookToggles look={look} onChange={setLook} creature={!!data.creature} />
-          {!data.creature && (
+          <div className="flex flex-wrap gap-1.5">
+            {!data.creature && (
+              <Button
+                variant="outline"
+                size="xs"
+                title="Change the looks gene by gene — face, hair, colours — and save the DNA into the mod"
+                onClick={() => setShop(true)}
+              >
+                <Scissors />
+                Barbershop…
+              </Button>
+            )}
             <Button
               variant="outline"
               size="xs"
-              className="self-start"
-              title="Change the looks gene by gene — face, hair, colours — and save the DNA into the mod"
-              onClick={() => setShop(true)}
+              title="What the portrait is built from: meshes, vertex counts, blend shapes applied or skipped, bone morphs, decals — for checking mesh mods"
+              onClick={() => read({ type: 'characters', name: id }, 'portrait')}
             >
-              <Scissors />
-              Barbershop…
+              <ScanFace />
+              Built from…
             </Button>
-          )}
+          </div>
           <div className="flex items-center gap-2">
             {(
               [
